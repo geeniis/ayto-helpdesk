@@ -1,0 +1,56 @@
+// Esto le dice a Prisma que use Javascript/Typescript
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuración de la base de datos
+// NOTA: Para empezar usaremos "sqlite" que crea un archivo local. 
+// Más adelante, para el ayuntamiento, cambiaremos esto a "postgresql".
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- TUS TABLAS (Modelos) ---
+
+// 1. El usuario (Técnicos, empleados, admin)
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  nombre    String
+  password  String   // Necesitaremos contraseña para el login
+  rol       String   @default("EMPLEADO") // Roles: EMPLEADO, TECNICO, ADMIN
+  creadoEn  DateTime @default(now())
+  
+  // Relaciones
+  tickets   Ticket[] // Un usuario puede tener muchos tickets
+  equipos   Equipo[] // Un usuario puede tener muchos equipos asignados
+}
+
+// 2. Los Tickets de soporte
+model Ticket {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String
+  estado      String   @default("ABIERTO") // ABIERTO, EN_PROCESO, CERRADO
+  prioridad   String   @default("MEDIA")   // BAJA, MEDIA, ALTA
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relación: Cada ticket pertenece a un usuario (el que lo creó)
+  creadorId   Int
+  creador     Usuario  @relation(fields: [creadorId], references: [id])
+}
+
+// 3. Inventario (PCs, Pantallas, etc)
+model Equipo {
+  id          Int     @id @default(autoincrement())
+  tipo        String  // Ejemplo: "Portátil", "Monitor", "Impresora"
+  marca       String
+  modelo      String?
+  numeroSerie String? @unique
+  
+  // Relación: A quién se le ha dado este equipo
+  usuarioId   Int?    // Puede ser null si el equipo está en el almacén sin asignar
+  asignadoA   Usuario? @relation(fields: [usuarioId], references: [id])
+}
