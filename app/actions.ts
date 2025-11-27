@@ -3,6 +3,8 @@
 import prisma from '../lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { signIn } from '@/auth'
+import { AuthError } from 'next-auth'
 
 export async function crearTicket(formData: FormData) {
   // 1. Recogemos los datos del formulario HTML
@@ -60,5 +62,21 @@ export async function borrarTicket(id: number) {
     revalidatePath('/')
   } catch (error) {
     console.error("Error borrando ticket:", error)
+  }
+}
+
+export async function authenticate(prevState: string | undefined, formData: FormData) {
+  try {
+    await signIn('credentials', { ...Object.fromEntries(formData), redirectTo: '/' })
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin':
+          return 'Credenciales inválidas. Revisa tu email o contraseña.';
+        default:
+          return 'Algo salió mal. Inténtalo de nuevo.';
+      }
+    }
+    throw error;
   }
 }
