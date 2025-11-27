@@ -33,4 +33,32 @@ export async function crearTicket(formData: FormData) {
   
   // 4. Volvemos a la página principal
   redirect('/')
+
+  
+}
+
+export async function cambiarEstadoTicket(id: number, nuevoEstado: string) {
+  try {
+    await prisma.ticket.update({
+      where: { id: id },
+      data: { estado: nuevoEstado }
+    })
+    
+    revalidatePath('/') // Actualiza la home
+    revalidatePath(`/ticket/${id}`) // Actualiza la página del ticket
+    
+  } catch (error) {
+    console.error("Error actualizando ticket:", error)
+  }
+}
+
+export async function borrarTicket(id: number) {
+  try {
+    await prisma.ticket.delete({
+      where: { id: id }
+    })
+    revalidatePath('/')
+  } catch (error) {
+    console.error("Error borrando ticket:", error)
+  }
 }

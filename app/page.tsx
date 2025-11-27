@@ -31,7 +31,9 @@ export default async function Home() {
         {tickets.map((ticket) => (
           <div key={ticket.id} className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl font-semibold text-gray-800">{ticket.titulo}</h2>
+              <Link href={`/ticket/${ticket.id}`} className="hover:underline">
+  <h2 className="text-xl font-semibold text-blue-900">{ticket.titulo}</h2>
+</Link>
               <span className={`px-2 py-1 text-xs font-bold rounded ${
                 ticket.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
               }`}>
