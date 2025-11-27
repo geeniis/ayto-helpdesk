@@ -25,6 +25,7 @@ model Usuario {
   // Relaciones
   tickets   Ticket[] // Un usuario puede tener muchos tickets
   equipos   Equipo[] // Un usuario puede tener muchos equipos asignados
+  noticias  Noticia[] // Un usuario puede escribir muchas noticias
 }
 
 // 2. Los Tickets de soporte
@@ -53,4 +54,16 @@ model Equipo {
   // Relación: A quién se le ha dado este equipo
   usuarioId   Int?    // Puede ser null si el equipo está en el almacén sin asignar
   asignadoA   Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+// --- NUEVA TABLA: NOTICIAS ---
+model Noticia {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  contenido   String
+  publicadoEn DateTime @default(now())
+  
+  // Relación: Quién escribió la noticia
+  autorId     Int
+  autor       Usuario  @relation(fields: [autorId], references: [id])
 }

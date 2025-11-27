@@ -34,6 +34,12 @@ export default async function Home() {
           </p>
         </div>
         <div className="flex gap-4 items-center">
+          <Link 
+  href="/noticias" 
+  className="text-gray-600 hover:text-blue-600 font-medium px-4 transition"
+>
+  📰 Noticias
+</Link>
           <Link href="/nuevo" className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">
             + Nuevo Ticket
           </Link>

@@ -1,0 +1,9 @@
+-- CreateTable
+CREATE TABLE "Noticia" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "titulo" TEXT NOT NULL,
+    "contenido" TEXT NOT NULL,
+    "publicadoEn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "autorId" INTEGER NOT NULL,
+    CONSTRAINT "Noticia_autorId_fkey" FOREIGN KEY ("autorId") REFERENCES "Usuario" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
