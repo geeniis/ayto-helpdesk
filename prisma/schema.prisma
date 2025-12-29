@@ -21,6 +21,7 @@ model Usuario {
   password  String   // Necesitaremos contraseña para el login
   rol       String   @default("EMPLEADO") // Roles: EMPLEADO, TECNICO, ADMIN
   creadoEn  DateTime @default(now())
+  notificaciones Notificacion[]
   
   // Relaciones
   tickets   Ticket[] // Un usuario puede tener muchos tickets
@@ -82,4 +83,14 @@ model Comentario {
   
   autorId   Int
   autor     Usuario  @relation(fields: [autorId], references: [id])
+}
+
+model Notificacion {
+  id        Int      @id @default(autoincrement())
+  mensaje   String
+  leido     Boolean  @default(false)
+  creadoEn  DateTime @default(now())
+  
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
 }

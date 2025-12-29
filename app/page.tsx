@@ -1,11 +1,12 @@
 import prisma from '@/lib/prisma'
 import Link from 'next/link'
 import { auth, signOut } from '@/auth'
-import Filtros from '@/app/components/Filtros' // <--- Usamos el nuevo componente
+import Filtros from '@/app/components/Filtros'
+import Notificaciones from '@/app/components/Notificaciones'
 
 export const dynamic = 'force-dynamic'
 
-// Definimos los tipos de filtros que esperamos recibir
+// Definimos los tipos de parámetros que pueden llegar por la URL
 interface SearchParamsProps {
   searchParams?: Promise<{
     query?: string
@@ -21,33 +22,42 @@ export default async function Home(props: SearchParamsProps) {
   const prioridad = params?.prioridad || '';
 
   const session = await auth()
+
   if (!session?.user?.id) return null
 
-  // --- CONSTRUIMOS EL FILTRO DINÁMICO ---
+  // --- 1. PREPARAR EL FILTRO DINÁMICO ---
+  // Creamos un objeto 'where' que se aplicará a todas las columnas
   const whereClause: any = {}
 
-  // 1. Filtro de Texto (Título, Descripción O Nombre de Usuario)
+  // Filtro de Texto (Título, Descripción O Nombre de Usuario)
   if (query) {
     whereClause.OR = [
       { titulo: { contains: query } },
       { descripcion: { contains: query } },
-      { creador: { nombre: { contains: query } } } // <--- ¡Buscamos también por Usuario!
+      { creador: { nombre: { contains: query } } }
     ]
   }
 
-  // 2. Filtro de Categoría
+  // Filtro de Categoría
   if (categoria) {
     whereClause.categoria = categoria
   }
 
-  // 3. Filtro de Prioridad
+  // Filtro de Prioridad
   if (prioridad) {
     whereClause.prioridad = prioridad
   }
 
-  // --- CONSULTAS A LA BASE DE DATOS ---
-  // Reutilizamos 'whereClause' para que aplique a todas las columnas
+  // --- 2. CARGAR DATOS DE LA BASE DE DATOS ---
 
+  // A) Notificaciones del usuario (Las 10 últimas)
+  const misNotificaciones = await prisma.notificacion.findMany({
+    where: { usuarioId: parseInt(session.user.id) },
+    orderBy: { creadoEn: 'desc' },
+    take: 10
+  })
+
+  // B) Tickets por Estado (Aplicando los filtros)
   const ticketsAbiertos = await prisma.ticket.findMany({
     where: { estado: 'ABIERTO', ...whereClause },
     include: { creador: true },
@@ -67,10 +77,12 @@ export default async function Home(props: SearchParamsProps) {
     take: 5 
   })
 
+  // C) Estadísticas (Urgentes activos)
   const totalUrgentes = await prisma.ticket.count({
     where: { prioridad: 'ALTA', estado: { not: 'RESUELTO' } }
   })
 
+  // D) Mis Equipos
   const misEquipos = await prisma.equipo.findMany({
     where: { usuarioId: parseInt(session.user.id) }
   })
@@ -78,8 +90,10 @@ export default async function Home(props: SearchParamsProps) {
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       
-      {/* CABECERA */}
+      {/* --- CABECERA SUPERIOR --- */}
       <div className="flex flex-col xl:flex-row justify-between items-center mb-8 bg-white p-4 rounded-lg shadow-sm border border-gray-200 gap-4">
+        
+        {/* Título y Bienvenida */}
         <div>
           <h1 className="text-2xl font-bold text-blue-800 flex items-center gap-2">
             🚑 Ayto-HelpDesk
@@ -89,15 +103,25 @@ export default async function Home(props: SearchParamsProps) {
           </p>
         </div>
 
-        {/* --- AQUÍ VA LA BARRA DE HERRAMIENTAS --- */}
-        <Filtros />
+        {/* Zona Central: Filtros + Notificaciones */}
+        <div className="flex items-center gap-4 flex-1 justify-end w-full md:w-auto">
+          {/* Componente de Filtros */}
+          <Filtros />
+          
+          {/* Separador vertical */}
+          <div className="h-8 w-px bg-gray-200 mx-1 hidden md:block"></div>
 
-        <div className="flex gap-3 items-center">
+          {/* Componente de Notificaciones */}
+          <Notificaciones lista={misNotificaciones} />
+        </div>
+
+        {/* Botones de Acción */}
+        <div className="flex gap-3 items-center mt-4 xl:mt-0">
           <Link href="/noticias" className="text-gray-600 hover:text-blue-600 font-medium transition text-sm">
             📰 Noticias
           </Link>
-          <Link href="/nuevo" className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium text-sm flex items-center gap-2">
-            <span>+</span> Nuevo
+          <Link href="/nuevo" className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+            <span>+</span> Nuevo Ticket
           </Link>
           <form action={async () => { 'use server'; await signOut({ redirectTo: '/login' }); }}>
             <button className="text-red-600 border border-red-200 px-3 py-2 rounded hover:bg-red-50 text-sm transition">
@@ -109,8 +133,10 @@ export default async function Home(props: SearchParamsProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
-        {/* COLUMNA IZQUIERDA (Igual que antes...) */}
+        {/* --- COLUMNA IZQUIERDA: ESTADÍSTICAS Y EQUIPOS --- */}
         <div className="lg:col-span-1 space-y-6">
+          
+          {/* Tarjetas KPI */}
           <div className="space-y-4">
             <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500 flex justify-between items-center">
               <div>
@@ -119,47 +145,95 @@ export default async function Home(props: SearchParamsProps) {
               </div>
               <span className="text-2xl">🔥</span>
             </div>
-            {/* ... resto de estadísticas ... */}
+            
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">Pendientes</p>
+                <p className="text-2xl font-bold text-blue-600">{ticketsAbiertos.length}</p>
+              </div>
+              <span className="text-2xl">📥</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-400 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">En Marcha</p>
+                <p className="text-2xl font-bold text-yellow-600">{ticketsEnProceso.length}</p>
+              </div>
+              <span className="text-2xl">⚙️</span>
+            </div>
           </div>
 
+          {/* Lista de Equipos */}
           <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-             <h3 className="font-bold text-gray-700 mb-3 border-b pb-2 text-sm">💻 Mis Dispositivos</h3>
-             {misEquipos.map(e => (
-               <div key={e.id} className="text-sm mb-2">
-                 <div className="font-semibold">{e.tipo}</div>
-                 <div className="text-xs text-gray-500">{e.marca} {e.modelo}</div>
-               </div>
-             ))}
+             <h3 className="font-bold text-gray-700 mb-3 border-b pb-2 text-sm flex items-center gap-2">
+               💻 Mis Dispositivos
+             </h3>
+             {misEquipos.length === 0 ? (
+                <p className="text-xs text-gray-400">Sin equipos asignados.</p>
+             ) : (
+                misEquipos.map(e => (
+                  <div key={e.id} className="text-sm mb-3 last:mb-0">
+                    <div className="font-semibold text-gray-800">{e.tipo}</div>
+                    <div className="text-xs text-gray-500">{e.marca} {e.modelo}</div>
+                    <div className="text-[10px] text-gray-400 font-mono bg-gray-100 inline-block px-1 rounded mt-1">
+                      SN: {e.numeroSerie || 'S/N'}
+                    </div>
+                  </div>
+                ))
+             )}
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: KANBAN */}
+        {/* --- COLUMNA DERECHA: TABLERO KANBAN (3 COLUMNAS) --- */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 h-fit">
           
-          {/* Mostramos la categoría en las tarjetas también */}
+          {/* Mapeamos las 3 columnas para no repetir código */}
           {[
-            { titulo: '📥 Pendientes', tickets: ticketsAbiertos, border: 'border-blue-500' },
-            { titulo: '⚙️ En Proceso', tickets: ticketsEnProceso, border: 'border-yellow-400' },
-            { titulo: '✅ Resueltos', tickets: ticketsResueltos, border: 'border-green-500' }
+            { titulo: '📥 Pendientes', tickets: ticketsAbiertos, border: 'border-blue-500', bg: 'bg-gray-100' },
+            { titulo: '⚙️ En Proceso', tickets: ticketsEnProceso, border: 'border-yellow-400', bg: 'bg-blue-50' },
+            { titulo: '✅ Resueltos', tickets: ticketsResueltos, border: 'border-green-500', bg: 'bg-green-50' }
           ].map((columna) => (
-            <div key={columna.titulo} className="bg-gray-100 rounded-xl p-4 h-full">
-              <h2 className="font-bold text-gray-700 mb-4 text-sm uppercase">{columna.titulo}</h2>
+            <div key={columna.titulo} className={`${columna.bg} rounded-xl p-4 h-full border border-gray-200/50`}>
+              <h2 className="font-bold text-gray-700 mb-4 text-sm uppercase flex justify-between">
+                {columna.titulo}
+                <span className="bg-white px-2 rounded-full text-xs py-0.5 border">{columna.tickets.length}</span>
+              </h2>
+              
               <div className="space-y-3">
-                {columna.tickets.length === 0 && <p className="text-center text-gray-400 text-xs italic py-4">Sin tickets</p>}
+                {columna.tickets.length === 0 && (
+                  <p className="text-center text-gray-400 text-xs italic py-4">
+                    {query || categoria || prioridad ? 'Sin resultados' : 'Vacío'}
+                  </p>
+                )}
                 
                 {columna.tickets.map(ticket => (
-                  <Link key={ticket.id} href={`/ticket/${ticket.id}`} className={`block bg-white p-3 rounded shadow-sm border-l-4 ${columna.border} hover:shadow-md transition`}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ticket.prioridad === 'ALTA' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                  <Link key={ticket.id} href={`/ticket/${ticket.id}`} className={`block bg-white p-3 rounded shadow-sm border-l-4 ${columna.border} hover:shadow-md transition relative group`}>
+                    
+                    {/* Fila superior: Prioridad y Categoría */}
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        ticket.prioridad === 'ALTA' ? 'bg-red-50 text-red-600 border-red-100' : 
+                        ticket.prioridad === 'MEDIA' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' : 
+                        'bg-gray-50 text-gray-500 border-gray-100'
+                      }`}>
                         {ticket.prioridad}
                       </span>
-                      {/* Mostramos la categoría en pequeñito */}
-                      <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
+                      <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
                         {ticket.categoria}
                       </span>
                     </div>
-                    <h3 className="font-semibold text-gray-800 text-sm mb-1">{ticket.titulo}</h3>
-                    <div className="text-xs text-gray-500">👤 {ticket.creador.nombre}</div>
+
+                    {/* Título */}
+                    <h3 className={`font-semibold text-gray-800 text-sm mb-1 group-hover:text-blue-600 ${columna.titulo.includes('Resueltos') ? 'line-through text-gray-500' : ''}`}>
+                      {ticket.titulo}
+                    </h3>
+
+                    {/* Fila inferior: Usuario y Fecha */}
+                    <div className="flex justify-between items-center text-xs text-gray-400 mt-2 pt-2 border-t border-gray-50">
+                      <span className="flex items-center gap-1">👤 {ticket.creador.nombre}</span>
+                      <span>{new Date(ticket.creadoEn).toLocaleDateString()}</span>
+                    </div>
+
                   </Link>
                 ))}
               </div>

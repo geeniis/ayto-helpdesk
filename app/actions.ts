@@ -91,7 +91,6 @@ export async function editarTicket(formData: FormData) {
   redirect(`/ticket/${id}`)
 }
 
-// --- CAMBIAR ESTADO TICKET ---
 export async function cambiarEstadoTicket(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
@@ -101,10 +100,21 @@ export async function cambiarEstadoTicket(formData: FormData) {
 
   if (!id || !nuevoEstado) return;
 
-  await prisma.ticket.update({
-    where: { id: parseInt(id.toString()) },
-    data: { estado: nuevoEstado }
+  const ticketId = parseInt(id.toString())
+
+  // 1. Actualizamos el ticket
+  const ticketActualizado = await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { estado: nuevoEstado },
+    include: { creador: true } // Necesitamos saber quién es el creador para avisarle
   })
+
+  // 2. ¡DISPARAMOS LA NOTIFICACIÓN! (NUEVO)
+  // Le avisamos al creador del ticket (ticketActualizado.creadorId)
+  await crearNotificacion(
+    ticketActualizado.creadorId,
+    `Tu ticket "${ticketActualizado.titulo}" ha cambiado a estado: ${nuevoEstado}`
+  )
 
   revalidatePath(`/ticket/${id}`)
   revalidatePath('/') 
@@ -187,20 +197,32 @@ export async function agregarComentario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
 
-  const ticketId = formData.get('ticketId')
+  const ticketId = parseInt(formData.get('ticketId')?.toString() || '0')
   const contenido = formData.get('contenido') as string
   const esInterno = formData.get('interno') === 'on'
 
   if (!ticketId || !contenido) return;
 
+  // 1. Guardamos el comentario
   await prisma.comentario.create({
     data: {
       contenido,
       interno: esInterno,
-      ticketId: parseInt(ticketId.toString()),
+      ticketId: ticketId,
       autorId: parseInt(session.user.id)
     }
   })
+
+  // 2. Buscamos el ticket para saber de quién es
+  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } })
+  
+  if (ticket && ticket.creadorId !== parseInt(session.user.id)) {
+      // Solo notificamos si el que comenta NO es el dueño del ticket (para no auto-notificarse)
+      await crearNotificacion(
+        ticket.creadorId,
+        `Nuevo comentario en tu ticket: "${ticket.titulo}"`
+      )
+  }
 
   revalidatePath(`/ticket/${ticketId}`)
 }
@@ -244,5 +266,30 @@ export async function editarComentario(formData: FormData) {
 
   revalidatePath(`/ticket/${ticketId}`)
   redirect(`/ticket/${ticketId}`)
+}
+
+// --- NOTIFICACIONES (Lógica Interna) ---
+
+// Esta función no se exporta como acción, la usamos nosotros dentro de otras acciones
+async function crearNotificacion(usuarioId: number, mensaje: string) {
+  try {
+    await prisma.notificacion.create({
+      data: {
+        usuarioId,
+        mensaje
+      }
+    })
+  } catch (e) {
+    console.error("Error creando notificación:", e)
+  }
+}
+
+// Esta SÍ se exporta para usarla desde el botón de la campanita
+export async function marcarNotificacionLeida(id: number) {
+  await prisma.notificacion.update({
+    where: { id },
+    data: { leido: true }
+  })
+  revalidatePath('/')
 }
 
