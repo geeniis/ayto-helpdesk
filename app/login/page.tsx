@@ -1,63 +1,67 @@
-'use client' // Esto es necesario porque el formulario tiene interacción (hooks)
+import { signIn } from '@/auth'
+import Link from 'next/link'
 
-import { authenticate } from '@/app/actions'
-import { useActionState } from 'react'
- 
 export default function LoginPage() {
-  const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined)
- 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md border-t-4 border-blue-600">
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-800">
-          🔐 Ayto-HelpDesk
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border border-gray-200">
         
-        <form action={formAction} className="space-y-4">
+        {/* Encabezado */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-blue-800">Iniciar Sesión</h1>
+          <p className="text-sm text-gray-500">Acceso al Ayto-HelpDesk</p>
+        </div>
+
+        {/* Formulario de Login */}
+        <form
+          action={async (formData) => {
+            "use server"
+            await signIn("credentials", formData)
+          }}
+          className="space-y-4"
+        >
+          {/* Campo Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="email">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Correo Electrónico
             </label>
-            <input
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              id="email"
-              type="email"
-              name="email"
-              placeholder="usuario@ayto.es"
+            <input 
+              name="email" 
+              type="email" 
+              placeholder="usuario@ejemplo.com" 
               required
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Campo Contraseña */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña
+            </label>
+            <input 
+              name="password" 
+              type="password" 
+              placeholder="******" 
+              required
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="password">
-              Contraseña
-            </label>
-            <input
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              id="password"
-              type="password"
-              name="password"
-              placeholder="******"
-              required
-              minLength={6}
-            />
-          </div>
-
-          {/* Mensaje de error si falla el login */}
-          {errorMessage && (
-            <div className="rounded bg-red-50 p-3 text-sm text-red-600 border border-red-200">
-              ⚠️ {errorMessage}
-            </div>
-          )}
-
-          <button
-            className="w-full rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
-            aria-disabled={isPending}
-            disabled={isPending} // Desactiva el botón mientras carga
-          >
-            {isPending ? 'Entrando...' : 'Iniciar Sesión'}
+          {/* Botón Entrar */}
+          <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition font-bold shadow-sm">
+            Entrar
           </button>
         </form>
+
+        {/* --- AQUÍ ESTÁ EL ENLACE AL REGISTRO (LO NUEVO) --- */}
+        <p className="text-center mt-6 text-sm text-gray-600">
+          ¿No tienes cuenta?{' '}
+        <a href="/register" className="text-blue-600 font-medium hover:underline">
+  Regístrate aquí
+</a>
+        </p>
+
       </div>
     </div>
   )

@@ -1,14 +1,25 @@
-import NextAuth from 'next-auth';
+import NextAuth from "next-auth"
 import { authConfig } from './auth.config';
 
-// 1. Inicializamos NextAuth
-const { auth } = NextAuth(authConfig);
+const { auth } = NextAuth(authConfig)
 
-// 2. Exportamos la función 'auth' como default (Esto es el Middleware)
-export default auth;
+export default auth((req) => {
+  const isLoggedIn = !!req.auth
+  const isOnDashboard = req.nextUrl.pathname === "/"
+  
+  // AQUI ESTÁ LA CLAVE: Definimos las rutas públicas
+  const isPublicRoute = 
+    req.nextUrl.pathname === "/login" || 
+    req.nextUrl.pathname === "/register" // <--- AÑADE ESTO
 
-// 3. Configuración de rutas (Igual que antes)
+  if (!isLoggedIn && !isPublicRoute) {
+    return Response.redirect(new URL("/login", req.nextUrl))
+  }
+
+  return
+})
+
+// En el matcher, asegúrate de que no bloquee los estáticos
 export const config = {
-  // Excluir rutas internas de Next.js y archivos estáticos
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
-};
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+}

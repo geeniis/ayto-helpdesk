@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { signIn, signOut } from '@/auth'
 import { AuthError } from 'next-auth'
 import { auth } from '@/auth'
-
+import bcrypt from 'bcryptjs'
 // --- CREAR TICKET ---
 export async function crearTicket(formData: FormData) {
   try {
@@ -292,4 +292,42 @@ export async function marcarNotificacionLeida(id: number) {
   })
   revalidatePath('/')
 }
+// --- REGISTRO DE USUARIOS ---
 
+export async function registrarUsuario(formData: FormData) {
+  const nombre = formData.get('nombre') as string
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const rol = formData.get('rol') as string || 'USER' // Por defecto USER
+
+  if (!email || !password || !nombre) {
+    return // O podrías devolver un error
+  }
+
+  // 1. Comprobar si el email ya existe
+  const existe = await prisma.usuario.findUnique({
+    where: { email }
+  })
+
+  if (existe) {
+    // En una app real, aquí devolveríamos un error al formulario
+    console.log("El usuario ya existe")
+    return
+  }
+
+  // 2. Encriptar la contraseña
+  const hashedPassword = await bcrypt.hash(password, 10)
+
+  // 3. Crear el usuario
+  await prisma.usuario.create({
+    data: {
+      nombre,
+      email,
+      password: hashedPassword,
+      rol
+    }
+  })
+
+  // 4. Redirigir al login para que entre
+  redirect('/login')
+}
