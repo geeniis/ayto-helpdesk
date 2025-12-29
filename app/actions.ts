@@ -8,6 +8,18 @@ import { AuthError } from 'next-auth'
 import { auth } from '@/auth'
 import bcrypt from 'bcryptjs'
 // --- CREAR TICKET ---
+
+async function verificarPermisos(ticketId: number, usuarioId: string) {
+  const usuario = await prisma.usuario.findUnique({ where: { id: parseInt(usuarioId) } })
+  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } })
+
+  if (!usuario || !ticket) throw new Error("No encontrado")
+
+  const esAdmin = usuario.rol === 'ADMIN'
+  const esDuenio = ticket.creadorId === parseInt(usuarioId)
+
+  return { esAdmin, esDuenio, ticket, usuario }
+}
 export async function crearTicket(formData: FormData) {
   try {
     const session = await auth()
@@ -37,87 +49,68 @@ export async function crearTicket(formData: FormData) {
 export async function borrarTicket(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
-
-  const id = formData.get('id')
-  if (!id) return;
-
-  const ticketId = parseInt(id.toString())
-
-  try {
-    // 1. Primero borramos los comentarios asociados (limpieza)
-    await prisma.comentario.deleteMany({
-      where: { ticketId: ticketId }
-    })
-
-    // 2. Ahora sí borramos el ticket
-    await prisma.ticket.delete({
-      where: { id: ticketId }
-    })
-
-    revalidatePath('/')
-  } catch (error) {
-    console.error("Error borrando ticket:", error)
-    return; // Si falla, no redirigimos para poder ver el error
-  }
   
-  // 3. Redirigimos al inicio
+  const id = parseInt(formData.get('id') as string)
+
+  // Verificamos permisos
+  const { esAdmin, esDuenio } = await verificarPermisos(id, session.user.id)
+
+  // Solo borra si es Admin o Dueño
+  if (!esAdmin && !esDuenio) {
+      throw new Error("No autorizado")
+  }
+
+  // ... borrado de comentarios y ticket (igual que tenías) ...
+  await prisma.comentario.deleteMany({ where: { ticketId: id } })
+  await prisma.ticket.delete({ where: { id } })
+
+  revalidatePath('/')
   redirect('/')
 }
-
 // --- EDITAR TICKET (NUEVO) ---
 export async function editarTicket(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
 
-  const id = formData.get('id')
+  const id = parseInt(formData.get('id') as string)
+  
+  // 1. VERIFICAMOS PERMISOS
+  const { esAdmin, esDuenio, ticket } = await verificarPermisos(id, session.user.id)
+
+  // Si no es dueño ni admin -> NO PUEDE TOCAR
+  if (!esAdmin && !esDuenio) {
+    throw new Error("No tienes permiso para editar este ticket")
+  }
+
   const titulo = formData.get('titulo') as string
   const descripcion = formData.get('descripcion') as string
   const prioridad = formData.get('prioridad') as string
   const categoria = formData.get('categoria') as string
-
-  if (!id || !titulo) return;
+  
+  // OJO AQUÍ: El estado solo se cambia si es ADMIN
+  // Si es usuario normal, mantenemos el estado que ya tenía el ticket
+  let estado = ticket.estado 
+  if (esAdmin) {
+      // Solo el admin lee el campo 'estado' del formulario
+      estado = formData.get('estado') as string || ticket.estado
+  }
 
   await prisma.ticket.update({
-    where: { id: parseInt(id.toString()) },
+    where: { id },
     data: {
       titulo,
       descripcion,
       prioridad,
-      categoria
+      categoria,
+      estado // <--- Usamos la variable controlada
     }
   })
 
+  // ... notificaciones y revalidate ...
+  if (estado !== ticket.estado) { /* lógica de notificación si cambió estado */ }
+
   revalidatePath(`/ticket/${id}`)
   redirect(`/ticket/${id}`)
-}
-
-export async function cambiarEstadoTicket(formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.id) return;
-
-  const id = formData.get('id')
-  const nuevoEstado = formData.get('estado') as string 
-
-  if (!id || !nuevoEstado) return;
-
-  const ticketId = parseInt(id.toString())
-
-  // 1. Actualizamos el ticket
-  const ticketActualizado = await prisma.ticket.update({
-    where: { id: ticketId },
-    data: { estado: nuevoEstado },
-    include: { creador: true } // Necesitamos saber quién es el creador para avisarle
-  })
-
-  // 2. ¡DISPARAMOS LA NOTIFICACIÓN! (NUEVO)
-  // Le avisamos al creador del ticket (ticketActualizado.creadorId)
-  await crearNotificacion(
-    ticketActualizado.creadorId,
-    `Tu ticket "${ticketActualizado.titulo}" ha cambiado a estado: ${nuevoEstado}`
-  )
-
-  revalidatePath(`/ticket/${id}`)
-  revalidatePath('/') 
 }
 
 // --- AUTENTICACIÓN ---
@@ -298,7 +291,6 @@ export async function registrarUsuario(formData: FormData) {
   const nombre = formData.get('nombre') as string
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const rol = formData.get('rol') as string || 'USER' // Por defecto USER
 
   if (!email || !password || !nombre) {
     return // O podrías devolver un error
@@ -324,10 +316,65 @@ export async function registrarUsuario(formData: FormData) {
       nombre,
       email,
       password: hashedPassword,
-      rol
+      rol: "USER" // Por defecto todos son USER
     }
   })
 
   // 4. Redirigir al login para que entre
   redirect('/login')
+}
+export async function cambiarRolUsuario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  // VERIFICAR QUE EL QUE EJECUTA ESTO ES ADMIN (¡IMPORTANTE!)
+  const yo = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (yo?.rol !== 'ADMIN') return;
+
+  const usuarioId = parseInt(formData.get('usuarioId') as string)
+  const nuevoRol = formData.get('nuevoRol') as string // 'ADMIN' o 'USER'
+
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { rol: nuevoRol }
+  })
+
+  revalidatePath('/admin/usuarios')
+}
+
+export async function cambiarEstadoTicket(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  // 1. SEGURIDAD: Solo ADMIN puede cambiar estados
+  const yo = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  
+  if (yo?.rol !== 'ADMIN') {
+    throw new Error("⛔ Solo los administradores pueden cambiar el estado.")
+  }
+
+  const id = formData.get('id')
+  const nuevoEstado = formData.get('estado') as string 
+
+  if (!id || !nuevoEstado) return;
+
+  const ticketId = parseInt(id.toString())
+
+  // 2. Actualizamos el ticket
+  const ticketActualizado = await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { estado: nuevoEstado },
+    include: { creador: true }
+  })
+
+  // 3. Notificamos al usuario
+  if (ticketActualizado.creadorId !== yo.id) {
+    await crearNotificacion(
+      ticketActualizado.creadorId,
+      `El estado de tu ticket ha cambiado a: ${nuevoEstado}`
+    )
+  }
+
+  revalidatePath(`/ticket/${ticketId}`)
+  revalidatePath('/') 
 }

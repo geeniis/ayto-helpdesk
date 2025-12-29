@@ -49,15 +49,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Rol (Opcional - Lo dejamos visible para pruebas, en real suele estar oculto) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-            <select name="rol" className="w-full p-2 border rounded bg-white">
-              <option value="USER">Usuario (Empleado)</option>
-              <option value="ADMIN">Administrador (Técnico)</option>
-            </select>
-          </div>
-
           <button 
             type="submit" 
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition font-bold"

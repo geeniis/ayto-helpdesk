@@ -6,7 +6,6 @@ import Notificaciones from '@/app/components/Notificaciones'
 
 export const dynamic = 'force-dynamic'
 
-// Definimos los tipos de parámetros que pueden llegar por la URL
 interface SearchParamsProps {
   searchParams?: Promise<{
     query?: string
@@ -25,11 +24,26 @@ export default async function Home(props: SearchParamsProps) {
 
   if (!session?.user?.id) return null
 
-  // --- 1. PREPARAR EL FILTRO DINÁMICO ---
-  // Creamos un objeto 'where' que se aplicará a todas las columnas
+  // 1. SEGURIDAD: Obtenemos el usuario real de la BD para saber su rol con certeza
+  const usuarioActual = await prisma.usuario.findUnique({
+    where: { id: parseInt(session.user.id) }
+  })
+
+  // Si por alguna razón no existe en BD, cortamos
+  if (!usuarioActual) return null
+
+  const esAdmin = usuarioActual.rol === 'ADMIN'
+
+  // 2. CONSTRUIR FILTROS (WHERE)
   const whereClause: any = {}
 
-  // Filtro de Texto (Título, Descripción O Nombre de Usuario)
+  // A) Filtro de Seguridad (Rol)
+  // Si NO es admin, forzamos a ver solo sus propios tickets
+  if (!esAdmin) {
+    whereClause.creadorId = usuarioActual.id
+  }
+
+  // B) Filtros de Búsqueda (Texto, Categoría, Prioridad)
   if (query) {
     whereClause.OR = [
       { titulo: { contains: query } },
@@ -38,26 +52,24 @@ export default async function Home(props: SearchParamsProps) {
     ]
   }
 
-  // Filtro de Categoría
   if (categoria) {
     whereClause.categoria = categoria
   }
 
-  // Filtro de Prioridad
   if (prioridad) {
     whereClause.prioridad = prioridad
   }
 
-  // --- 2. CARGAR DATOS DE LA BASE DE DATOS ---
+  // 3. CONSULTAS A LA BASE DE DATOS (Usando el whereClause protegido)
 
-  // A) Notificaciones del usuario (Las 10 últimas)
+  // A) Notificaciones (Siempre son privadas del usuario)
   const misNotificaciones = await prisma.notificacion.findMany({
-    where: { usuarioId: parseInt(session.user.id) },
+    where: { usuarioId: usuarioActual.id },
     orderBy: { creadoEn: 'desc' },
     take: 10
   })
 
-  // B) Tickets por Estado (Aplicando los filtros)
+  // B) Tickets por Estado
   const ticketsAbiertos = await prisma.ticket.findMany({
     where: { estado: 'ABIERTO', ...whereClause },
     include: { creador: true },
@@ -74,17 +86,21 @@ export default async function Home(props: SearchParamsProps) {
     where: { estado: 'RESUELTO', ...whereClause },
     include: { creador: true },
     orderBy: { creadoEn: 'desc' },
-    take: 5 
+    take: 5
   })
 
-  // C) Estadísticas (Urgentes activos)
+  // C) Estadísticas (Urgentes activos que yo puedo ver)
   const totalUrgentes = await prisma.ticket.count({
-    where: { prioridad: 'ALTA', estado: { not: 'RESUELTO' } }
+    where: { 
+      prioridad: 'ALTA', 
+      estado: { not: 'RESUELTO' },
+      ...whereClause // Aplicamos el mismo filtro de seguridad
+    }
   })
 
-  // D) Mis Equipos
+  // D) Mis Equipos (Siempre privado)
   const misEquipos = await prisma.equipo.findMany({
-    where: { usuarioId: parseInt(session.user.id) }
+    where: { usuarioId: usuarioActual.id }
   })
 
   return (
@@ -99,32 +115,43 @@ export default async function Home(props: SearchParamsProps) {
             🚑 Ayto-HelpDesk
           </h1>
           <p className="text-sm text-gray-500">
-            Panel de <span className="font-bold">{session.user.nombre || session.user.email}</span>
+            Panel de <span className="font-bold">{usuarioActual.nombre || usuarioActual.email}</span>
+            {/* Etiqueta de ROL */}
+            <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full border ${esAdmin ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+              {usuarioActual.rol}
+            </span>
           </p>
         </div>
 
         {/* Zona Central: Filtros + Notificaciones */}
         <div className="flex items-center gap-4 flex-1 justify-end w-full md:w-auto">
-          {/* Componente de Filtros */}
           <Filtros />
           
-          {/* Separador vertical */}
           <div className="h-8 w-px bg-gray-200 mx-1 hidden md:block"></div>
 
-          {/* Componente de Notificaciones */}
           <Notificaciones lista={misNotificaciones} />
         </div>
 
         {/* Botones de Acción */}
-        <div className="flex gap-3 items-center mt-4 xl:mt-0">
+        <div className="flex gap-3 items-center mt-4 xl:mt-0 flex-wrap justify-center">
+          
+          {/* BOTÓN SOLO PARA ADMIN */}
+          {esAdmin && (
+            <Link href="/admin/usuarios" className="bg-gray-800 text-white px-3 py-2 rounded shadow hover:bg-black transition text-sm flex items-center gap-2">
+              👮 Usuarios
+            </Link>
+          )}
+
           <Link href="/noticias" className="text-gray-600 hover:text-blue-600 font-medium transition text-sm">
             📰 Noticias
           </Link>
+          
           <Link href="/nuevo" className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium text-sm flex items-center gap-2 whitespace-nowrap">
             <span>+</span> Nuevo Ticket
           </Link>
+          
           <form action={async () => { 'use server'; await signOut({ redirectTo: '/login' }); }}>
-            <button className="text-red-600 border border-red-200 px-3 py-2 rounded hover:bg-red-50 text-sm transition">
+            <button className="text-red-600 border border-red-200 px-3 py-2 rounded hover:bg-red-50 text-sm transition bg-white">
               Salir
             </button>
           </form>
@@ -187,7 +214,7 @@ export default async function Home(props: SearchParamsProps) {
         {/* --- COLUMNA DERECHA: TABLERO KANBAN (3 COLUMNAS) --- */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 h-fit">
           
-          {/* Mapeamos las 3 columnas para no repetir código */}
+          {/* Mapeamos las 3 columnas */}
           {[
             { titulo: '📥 Pendientes', tickets: ticketsAbiertos, border: 'border-blue-500', bg: 'bg-gray-100' },
             { titulo: '⚙️ En Proceso', tickets: ticketsEnProceso, border: 'border-yellow-400', bg: 'bg-blue-50' },
@@ -202,7 +229,7 @@ export default async function Home(props: SearchParamsProps) {
               <div className="space-y-3">
                 {columna.tickets.length === 0 && (
                   <p className="text-center text-gray-400 text-xs italic py-4">
-                    {query || categoria || prioridad ? 'Sin resultados' : 'Vacío'}
+                    {query || categoria || prioridad ? 'Sin coincidencias' : 'Vacío'}
                   </p>
                 )}
                 
@@ -230,7 +257,10 @@ export default async function Home(props: SearchParamsProps) {
 
                     {/* Fila inferior: Usuario y Fecha */}
                     <div className="flex justify-between items-center text-xs text-gray-400 mt-2 pt-2 border-t border-gray-50">
-                      <span className="flex items-center gap-1">👤 {ticket.creador.nombre}</span>
+                      <span className="flex items-center gap-1">
+                        {/* Si soy yo, pone "Tú", si es otro (visto por admin), pone nombre */}
+                        👤 {ticket.creadorId === usuarioActual.id ? 'Tú' : ticket.creador.nombre}
+                      </span>
                       <span>{new Date(ticket.creadoEn).toLocaleDateString()}</span>
                     </div>
 
