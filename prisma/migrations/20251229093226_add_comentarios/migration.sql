@@ -1,0 +1,11 @@
+-- CreateTable
+CREATE TABLE "Comentario" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "contenido" TEXT NOT NULL,
+    "interno" BOOLEAN NOT NULL DEFAULT false,
+    "creadoEn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "ticketId" INTEGER NOT NULL,
+    "autorId" INTEGER NOT NULL,
+    CONSTRAINT "Comentario_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Comentario_autorId_fkey" FOREIGN KEY ("autorId") REFERENCES "Usuario" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);

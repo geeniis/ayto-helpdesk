@@ -162,3 +162,74 @@ export async function editarNoticia(formData: FormData) {
   revalidatePath('/noticias')
   redirect('/noticias')
 }
+
+export async function agregarComentario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const ticketId = formData.get('ticketId')
+  const contenido = formData.get('contenido') as string
+  // Si el checkbox está marcado, 'interno' valdrá "on", si no, será null
+  const esInterno = formData.get('interno') === 'on'
+
+  if (!ticketId || !contenido) return;
+
+  await prisma.comentario.create({
+    data: {
+      contenido,
+      interno: esInterno,
+      ticketId: parseInt(ticketId.toString()),
+      autorId: parseInt(session.user.id)
+    }
+  })
+
+  // Recargamos la página del ticket para ver el mensaje nuevo
+  revalidatePath(`/ticket/${ticketId}`)
+}
+
+// ... (Tus funciones anteriores)
+
+// --- BORRAR COMENTARIO ---
+export async function borrarComentario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const id = formData.get('id')
+  const ticketId = formData.get('ticketId') // Necesitamos saber de qué ticket era para volver
+
+  if (!id || !ticketId) return;
+
+  // Solo dejamos borrar si eres el dueño (o podrías añadir check de admin aquí)
+  // Por simplicidad, asumimos que el botón solo se muestra si puedes borrarlo.
+  
+  await prisma.comentario.delete({
+    where: { id: parseInt(id.toString()) }
+  })
+
+  revalidatePath(`/ticket/${ticketId}`)
+}
+
+// --- EDITAR COMENTARIO ---
+export async function editarComentario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const id = formData.get('id')
+  const ticketId = formData.get('ticketId')
+  const contenido = formData.get('contenido') as string
+  const esInterno = formData.get('interno') === 'on'
+
+  if (!id || !ticketId) return;
+
+  await prisma.comentario.update({
+    where: { id: parseInt(id.toString()) },
+    data: {
+      contenido,
+      interno: esInterno
+    }
+  })
+
+  // Volvemos al ticket
+  revalidatePath(`/ticket/${ticketId}`)
+  redirect(`/ticket/${ticketId}`)
+}

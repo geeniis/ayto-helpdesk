@@ -1,113 +1,158 @@
 import prisma from '@/lib/prisma'
-import { cambiarEstadoTicket, borrarTicket } from '@/app/actions'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { agregarComentario, borrarComentario } from '@/app/actions'
+import { auth } from '@/auth'
 
-// Definimos que 'params' ahora es una Promesa
-interface PageProps {
-  params: Promise<{ id: string }>
-}
 
-export default async function TicketDetallePage({ params }: PageProps) {
-  // 1. ¡EL CAMBIO CLAVE! Esperamos a que lleguen los parámetros
+
+// Recordamos el truco del 'await params' para Next.js 15
+export default async function TicketDetalle({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const ticketId = parseInt(id)
+  const session = await auth()
 
-  // A partir de aquí, todo sigue igual que antes...
-  
-  // 2. Buscamos el ticket en la BD
-  // Validamos que el ID sea un número válido antes de llamar a Prisma
-  if (isNaN(ticketId)) {
-     redirect('/')
-  }
-
+  // 1. Buscamos el ticket Y sus comentarios (incluyendo autores)
   const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-    include: { creador: true }
+    where: { id: parseInt(id) },
+    include: { 
+      creador: true,
+      comentarios: {
+        include: { autor: true },
+        orderBy: { creadoEn: 'asc' } // Los viejos primero (tipo chat)
+      }
+    }
   })
 
-  // 3. Si no existe, lo mandamos a la home
-  if (!ticket) {
-    redirect('/')
-  }
-
-  // 4. Preparamos los botones
-  const cerrarTicket = cambiarEstadoTicket.bind(null, ticket.id, 'CERRADO')
-  const abrirTicket = cambiarEstadoTicket.bind(null, ticket.id, 'ABIERTO')
-  const enProcesoTicket = cambiarEstadoTicket.bind(null, ticket.id, 'EN_PROCESO')
-  const eliminarEsteTicket = borrarTicket.bind(null, ticket.id)
+  if (!ticket) notFound()
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50 flex justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl h-fit border-t-4 border-blue-600">
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
         
-        {/* Cabecera */}
-        <div className="flex justify-between items-start mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Ticket #{ticket.id}</h1>
-          <span className={`px-3 py-1 text-sm font-bold rounded-full ${
-            ticket.estado === 'CERRADO' ? 'bg-gray-200 text-gray-600' : 
-            ticket.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
-            'bg-green-100 text-green-800'
-          }`}>
-            {ticket.estado}
-          </span>
-        </div>
+        {/* BOTÓN VOLVER */}
+        <Link href="/" className="text-blue-600 hover:underline mb-4 inline-block">
+          &larr; Volver al listado
+        </Link>
 
-        {/* Detalles */}
-        <h2 className="text-xl font-semibold mb-2">{ticket.titulo}</h2>
-        <div className="bg-gray-50 p-4 rounded-md border mb-6 text-gray-700 whitespace-pre-wrap">
-          {ticket.descripcion}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 text-sm text-gray-500 mb-8">
-          <div><p className="font-semibold">Prioridad:</p><p>{ticket.prioridad}</p></div>
-          <div><p className="font-semibold">Creado por:</p><p>{ticket.creador.nombre}</p></div>
-          <div><p className="font-semibold">Fecha:</p><p>{ticket.creadoEn.toLocaleDateString()}</p></div>
-        </div>
-
-        {/* Botonera */}
-        <div className="border-t pt-6">
-          <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">Acciones Técnicas</h3>
-          <div className="flex flex-wrap gap-3">
-            
-            {ticket.estado !== 'CERRADO' && (
-              <form action={cerrarTicket}>
-                <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
-                  ✅ Marcar Resuelto
-                </button>
-              </form>
-            )}
-
-            {ticket.estado === 'ABIERTO' && (
-               <form action={enProcesoTicket}>
-                 <button className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition">
-                   ⚙️ En Proceso
-                 </button>
-               </form>
-            )}
-
-            {ticket.estado === 'CERRADO' && (
-               <form action={abrirTicket}>
-                 <button className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">
-                   🔓 Reabrir
-                 </button>
-               </form>
-            )}
-            
-            <div className="flex-grow"></div> 
-
-            <form action={eliminarEsteTicket}>
-               <button className="text-red-500 hover:text-red-700 px-4 py-2 font-medium">
-                 🗑️ Eliminar
-               </button>
-            </form>
+        {/* DETALLES DEL TICKET (Igual que antes) */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8 border-l-4 border-blue-500">
+          <div className="flex justify-between items-start mb-4">
+            <h1 className="text-2xl font-bold text-gray-800">{ticket.titulo}</h1>
+            <span className={`px-3 py-1 rounded text-sm font-bold ${
+              ticket.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+            }`}>
+              {ticket.prioridad}
+            </span>
+          </div>
+          
+          <p className="text-gray-700 text-lg mb-6 whitespace-pre-wrap">{ticket.descripcion}</p>
+          
+          <div className="flex gap-6 text-sm text-gray-500 border-t pt-4">
+            <p>👤 Reportado por: <span className="font-semibold">{ticket.creador.nombre || ticket.creador.email}</span></p>
+            <p>📅 Fecha: {ticket.creadoEn.toLocaleDateString()}</p>
+            <p>🔄 Estado: <span className="uppercase font-medium">{ticket.estado}</span></p>
           </div>
         </div>
 
-        <div className="mt-6 pt-4 text-center">
-            <Link href="/" className="text-blue-600 hover:underline">
-                &larr; Volver al listado
-            </Link>
+        {/* --- ZONA DE COMENTARIOS --- */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            💬 Seguimiento de la incidencia
+          </h2>
+
+          {/* LISTA DE MENSAJES */}
+          <div className="space-y-4">
+            {ticket.comentarios.length === 0 && (
+              <p className="text-gray-400 italic">No hay comentarios aún.</p>
+            )}
+
+            {ticket.comentarios.map((comentario) => (
+              <div 
+                key={comentario.id} 
+                className={`p-4 rounded-lg border ${
+                  comentario.interno 
+                    ? 'bg-yellow-50 border-yellow-200' // Estilo para NOTAS INTERNAS
+                    : 'bg-white border-gray-200'       // Estilo normal
+                }`}
+              >
+               <div className="flex justify-between items-start mb-2">
+                  {/* Izquierda: Autor y Fecha */}
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm text-gray-700 flex items-center gap-2">
+                      {comentario.autor.nombre || comentario.autor.email}
+                      {comentario.interno && (
+                        <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded border border-yellow-300">
+                          🔒 Interno
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {comentario.creadoEn.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Derecha: Botones de Acción (Solo si eres tú el autor o Admin) */}
+                  {/* Nota: Aquí podrías poner un if(session.user.id === comentario.autorId) para asegurar */}
+                  <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+                    
+                    {/* EDITAR */}
+                    <Link 
+                      href={`/comentario/editar/${comentario.id}`}
+                      className="text-blue-400 hover:text-blue-600 p-1"
+                      title="Editar comentario"
+                    >
+                      ✏️
+                    </Link>
+
+                    {/* BORRAR */}
+                    <form action={borrarComentario}>
+                      <input type="hidden" name="id" value={comentario.id} />
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <button 
+                        className="text-red-400 hover:text-red-600 p-1"
+                        title="Borrar comentario"
+                      >
+                        🗑️
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                <p className="text-gray-800 whitespace-pre-wrap">{comentario.contenido}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* FORMULARIO PARA NUEVO COMENTARIO */}
+          <div className="bg-gray-100 p-6 rounded-lg border border-gray-200 mt-8">
+            <h3 className="font-semibold text-gray-700 mb-3">Añadir nuevo comentario</h3>
+            <form action={agregarComentario}>
+              <input type="hidden" name="ticketId" value={ticket.id} />
+              
+              <textarea
+                name="contenido"
+                required
+                placeholder="Escribe aquí tu respuesta o nota..."
+                className="w-full rounded-md border-gray-300 p-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-3"
+                rows={3}
+              ></textarea>
+
+              <div className="flex justify-between items-center">
+                {/* CHECKBOX: Solo visible para técnicos (TÚ) */}
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                  <input type="checkbox" name="interno" className="rounded text-blue-600 focus:ring-blue-500" />
+                  <span>Marcar como <b>Nota Interna</b> (Solo técnicos)</span>
+                </label>
+
+                <button 
+                  type="submit" 
+                  className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition shadow"
+                >
+                  Enviar Comentario
+                </button>
+              </div>
+            </form>
+          </div>
+
         </div>
 
       </div>

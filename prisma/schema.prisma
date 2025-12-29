@@ -26,6 +26,7 @@ model Usuario {
   tickets   Ticket[] // Un usuario puede tener muchos tickets
   equipos   Equipo[] // Un usuario puede tener muchos equipos asignados
   noticias  Noticia[] // Un usuario puede escribir muchas noticias
+  comentarios Comentario[]
 }
 
 // 2. Los Tickets de soporte
@@ -37,6 +38,7 @@ model Ticket {
   prioridad   String   @default("MEDIA")   // BAJA, MEDIA, ALTA
   creadoEn    DateTime @default(now())
   actualizadoEn DateTime @updatedAt
+  comentarios Comentario[]
 
   // Relación: Cada ticket pertenece a un usuario (el que lo creó)
   creadorId   Int
@@ -66,4 +68,17 @@ model Noticia {
   // Relación: Quién escribió la noticia
   autorId     Int
   autor       Usuario  @relation(fields: [autorId], references: [id])
+}
+
+model Comentario {
+  id        Int      @id @default(autoincrement())
+  contenido String
+  interno   Boolean  @default(false) // false = Visible para todos, true = Solo técnicos
+  creadoEn  DateTime @default(now())
+  
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  
+  autorId   Int
+  autor     Usuario  @relation(fields: [autorId], references: [id])
 }
