@@ -82,4 +82,83 @@ export async function authenticate(prevState: string | undefined, formData: Form
     }
     throw error;
   }
+
+  
+}
+
+export async function crearNoticia(formData: FormData) {
+  // 1. Verificar quién eres
+  const session = await auth()
+  if (!session?.user?.id) {
+    throw new Error("Debes iniciar sesión para publicar noticias")
+  }
+
+  // 2. Recoger datos del formulario
+  const titulo = formData.get('titulo') as string
+  const contenido = formData.get('contenido') as string
+
+  // 3. Guardar en Base de Datos
+  await prisma.noticia.create({
+    data: {
+      titulo,
+      contenido,
+      autorId: parseInt(session.user.id), // Se guarda con TU firma
+    },
+  })
+
+  // 4. Actualizar la lista y volver
+  revalidatePath('/noticias')
+  redirect('/noticias')
+}
+
+export async function borrarNoticia(formData: FormData) {
+  // 1. Verificamos sesión
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const id = formData.get('id')
+  if (!id) return;
+
+  try {
+    // 2. Borramos la noticia
+    await prisma.noticia.delete({
+      where: {
+        id: parseInt(id.toString())
+      }
+    })
+
+    // 3. Refrescamos la página
+    revalidatePath('/noticias')
+    
+  } catch (error) {
+    console.error("Error borrando noticia:", error)
+  }
+}
+
+export async function editarNoticia(formData: FormData) {
+  // 1. Verificamos sesión
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  // 2. Recogemos datos
+  const id = formData.get('id')
+  const titulo = formData.get('titulo') as string
+  const contenido = formData.get('contenido') as string
+
+  if (!id) return;
+
+  // 3. Actualizamos en base de datos
+  await prisma.noticia.update({
+    where: { 
+      id: parseInt(id.toString()) 
+    },
+    data: { 
+      titulo, 
+      contenido 
+    }
+  })
+
+  // 4. Volvemos al listado
+  revalidatePath('/noticias')
+  redirect('/noticias')
 }
