@@ -1,21 +1,17 @@
 'use server' // Esto es OBLIGATORIO: le dice a Next.js que esto se ejecuta en el servidor
 
-import prisma from '../lib/prisma'
+import prisma from '@/lib/prisma' // Asegúrate de que la ruta es correcta (@/lib/prisma o ../lib/prisma)
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { signIn } from '@/auth'
+import { signIn, signOut } from '@/auth'
 import { AuthError } from 'next-auth'
 import { auth } from '@/auth'
 
+// --- CREAR TICKET ---
 export async function crearTicket(formData: FormData) {
   try {
-    // 1. Obtenemos la sesión para saber quién eres
     const session = await auth()
-    
-    // Si no hay usuario logueado o no tiene ID, paramos todo (Seguridad)
-    if (!session?.user?.id) {
-       throw new Error("Usuario no identificado")
-    }
+    if (!session?.user?.id) throw new Error("Usuario no identificado")
 
     const titulo = formData.get('titulo') as string
     const descripcion = formData.get('descripcion') as string
@@ -26,48 +22,94 @@ export async function crearTicket(formData: FormData) {
         titulo,
         descripcion,
         prioridad,
-        // 2. ¡AQUÍ ESTÁ EL CAMBIO! Usamos tu ID real
-        // Convertimos el ID de string a número porque la base de datos espera un número
         creadorId: parseInt(session.user.id), 
       },
     })
 
     revalidatePath('/')
-    
   } catch (error) {
     console.error("❌ Error creando el ticket:", error)
-    // Opcional: Podrías redirigir a una página de error
   }
-  
   redirect('/')
 }
 
-export async function cambiarEstadoTicket(id: number, nuevoEstado: string) {
-  try {
-    await prisma.ticket.update({
-      where: { id: id },
-      data: { estado: nuevoEstado }
-    })
-    
-    revalidatePath('/') // Actualiza la home
-    revalidatePath(`/ticket/${id}`) // Actualiza la página del ticket
-    
-  } catch (error) {
-    console.error("Error actualizando ticket:", error)
-  }
-}
+// --- BORRAR TICKET (Actualizado para FormData y limpieza de comentarios) ---
+export async function borrarTicket(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
 
-export async function borrarTicket(id: number) {
+  const id = formData.get('id')
+  if (!id) return;
+
+  const ticketId = parseInt(id.toString())
+
   try {
-    await prisma.ticket.delete({
-      where: { id: id }
+    // 1. Primero borramos los comentarios asociados (limpieza)
+    await prisma.comentario.deleteMany({
+      where: { ticketId: ticketId }
     })
+
+    // 2. Ahora sí borramos el ticket
+    await prisma.ticket.delete({
+      where: { id: ticketId }
+    })
+
     revalidatePath('/')
   } catch (error) {
     console.error("Error borrando ticket:", error)
+    return; // Si falla, no redirigimos para poder ver el error
   }
+  
+  // 3. Redirigimos al inicio
+  redirect('/')
 }
 
+// --- EDITAR TICKET (NUEVO) ---
+export async function editarTicket(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const id = formData.get('id')
+  const titulo = formData.get('titulo') as string
+  const descripcion = formData.get('descripcion') as string
+  const prioridad = formData.get('prioridad') as string
+
+  if (!id || !titulo) return;
+
+  await prisma.ticket.update({
+    where: { id: parseInt(id.toString()) },
+    data: {
+      titulo,
+      descripcion,
+      prioridad
+    }
+  })
+
+  // Volvemos a la vista del ticket actualizado
+  revalidatePath(`/ticket/${id}`)
+  redirect(`/ticket/${id}`)
+}
+
+// --- CAMBIAR ESTADO TICKET ---
+export async function cambiarEstadoTicket(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+
+  const id = formData.get('id')
+  const nuevoEstado = formData.get('estado') as string 
+
+  if (!id || !nuevoEstado) return;
+
+  await prisma.ticket.update({
+    where: { id: parseInt(id.toString()) },
+    data: { estado: nuevoEstado }
+  })
+
+  revalidatePath(`/ticket/${id}`)
+  revalidatePath('/') 
+}
+
+// --- AUTENTICACIÓN ---
 export async function authenticate(prevState: string | undefined, formData: FormData) {
   try {
     await signIn('credentials', { ...Object.fromEntries(formData), redirectTo: '/' })
@@ -82,94 +124,70 @@ export async function authenticate(prevState: string | undefined, formData: Form
     }
     throw error;
   }
-
-  
 }
 
+// --- NOTICIAS (CREAR) ---
 export async function crearNoticia(formData: FormData) {
-  // 1. Verificar quién eres
   const session = await auth()
-  if (!session?.user?.id) {
-    throw new Error("Debes iniciar sesión para publicar noticias")
-  }
+  if (!session?.user?.id) throw new Error("Debes iniciar sesión")
 
-  // 2. Recoger datos del formulario
   const titulo = formData.get('titulo') as string
   const contenido = formData.get('contenido') as string
 
-  // 3. Guardar en Base de Datos
   await prisma.noticia.create({
     data: {
       titulo,
       contenido,
-      autorId: parseInt(session.user.id), // Se guarda con TU firma
+      autorId: parseInt(session.user.id),
     },
   })
 
-  // 4. Actualizar la lista y volver
   revalidatePath('/noticias')
   redirect('/noticias')
 }
 
+// --- NOTICIAS (BORRAR) ---
 export async function borrarNoticia(formData: FormData) {
-  // 1. Verificamos sesión
   const session = await auth()
   if (!session?.user?.id) return;
 
   const id = formData.get('id')
   if (!id) return;
 
-  try {
-    // 2. Borramos la noticia
-    await prisma.noticia.delete({
-      where: {
-        id: parseInt(id.toString())
-      }
-    })
+  await prisma.noticia.delete({
+    where: { id: parseInt(id.toString()) }
+  })
 
-    // 3. Refrescamos la página
-    revalidatePath('/noticias')
-    
-  } catch (error) {
-    console.error("Error borrando noticia:", error)
-  }
+  revalidatePath('/noticias')
 }
 
+// --- NOTICIAS (EDITAR) ---
 export async function editarNoticia(formData: FormData) {
-  // 1. Verificamos sesión
   const session = await auth()
   if (!session?.user?.id) return;
 
-  // 2. Recogemos datos
   const id = formData.get('id')
   const titulo = formData.get('titulo') as string
   const contenido = formData.get('contenido') as string
 
   if (!id) return;
 
-  // 3. Actualizamos en base de datos
   await prisma.noticia.update({
-    where: { 
-      id: parseInt(id.toString()) 
-    },
-    data: { 
-      titulo, 
-      contenido 
-    }
+    where: { id: parseInt(id.toString()) },
+    data: { titulo, contenido }
   })
 
-  // 4. Volvemos al listado
   revalidatePath('/noticias')
   redirect('/noticias')
 }
 
+// --- COMENTARIOS (AGREGAR) ---
 export async function agregarComentario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
 
   const ticketId = formData.get('ticketId')
   const contenido = formData.get('contenido') as string
-  // Si el checkbox está marcado, 'interno' valdrá "on", si no, será null
   const esInterno = formData.get('interno') === 'on'
 
   if (!ticketId || !contenido) return;
@@ -183,24 +201,18 @@ export async function agregarComentario(formData: FormData) {
     }
   })
 
-  // Recargamos la página del ticket para ver el mensaje nuevo
   revalidatePath(`/ticket/${ticketId}`)
 }
 
-// ... (Tus funciones anteriores)
-
-// --- BORRAR COMENTARIO ---
+// --- COMENTARIOS (BORRAR) ---
 export async function borrarComentario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
 
   const id = formData.get('id')
-  const ticketId = formData.get('ticketId') // Necesitamos saber de qué ticket era para volver
+  const ticketId = formData.get('ticketId') 
 
   if (!id || !ticketId) return;
-
-  // Solo dejamos borrar si eres el dueño (o podrías añadir check de admin aquí)
-  // Por simplicidad, asumimos que el botón solo se muestra si puedes borrarlo.
   
   await prisma.comentario.delete({
     where: { id: parseInt(id.toString()) }
@@ -209,7 +221,7 @@ export async function borrarComentario(formData: FormData) {
   revalidatePath(`/ticket/${ticketId}`)
 }
 
-// --- EDITAR COMENTARIO ---
+// --- COMENTARIOS (EDITAR) ---
 export async function editarComentario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
@@ -229,7 +241,6 @@ export async function editarComentario(formData: FormData) {
     }
   })
 
-  // Volvemos al ticket
   revalidatePath(`/ticket/${ticketId}`)
   redirect(`/ticket/${ticketId}`)
 }
