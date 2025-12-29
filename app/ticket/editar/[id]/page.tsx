@@ -50,6 +50,21 @@ export default async function EditarTicketPage({ params }: { params: Promise<{ i
               <option value="ALTA">🔴 Alta (Urgente)</option>
             </select>
           </div>
+          {/* CATEGORÍA (EDICIÓN) */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+  <select 
+    name="categoria" 
+    defaultValue={ticket.categoria} // <--- IMPORTANTE
+    className="w-full rounded-md border-gray-300 p-3 shadow-sm bg-white"
+  >
+    <option value="HARDWARE">🖥️ Hardware</option>
+    <option value="SOFTWARE">💾 Software</option>
+    <option value="RED">🌐 Red / Internet</option>
+    <option value="CUENTAS">🔑 Cuentas</option>
+    <option value="OTROS">❓ Otros</option>
+  </select>
+</div>
 
           {/* DESCRIPCIÓN */}
           <div>

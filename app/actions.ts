@@ -16,16 +16,16 @@ export async function crearTicket(formData: FormData) {
     const titulo = formData.get('titulo') as string
     const descripcion = formData.get('descripcion') as string
     const prioridad = formData.get('prioridad') as string
-
+    const categoria = formData.get('categoria') as string
     await prisma.ticket.create({
       data: {
         titulo,
         descripcion,
         prioridad,
+        categoria, 
         creadorId: parseInt(session.user.id), 
       },
     })
-
     revalidatePath('/')
   } catch (error) {
     console.error("❌ Error creando el ticket:", error)
@@ -73,6 +73,7 @@ export async function editarTicket(formData: FormData) {
   const titulo = formData.get('titulo') as string
   const descripcion = formData.get('descripcion') as string
   const prioridad = formData.get('prioridad') as string
+  const categoria = formData.get('categoria') as string
 
   if (!id || !titulo) return;
 
@@ -81,11 +82,11 @@ export async function editarTicket(formData: FormData) {
     data: {
       titulo,
       descripcion,
-      prioridad
+      prioridad,
+      categoria
     }
   })
 
-  // Volvemos a la vista del ticket actualizado
   revalidatePath(`/ticket/${id}`)
   redirect(`/ticket/${id}`)
 }
@@ -244,3 +245,4 @@ export async function editarComentario(formData: FormData) {
   revalidatePath(`/ticket/${ticketId}`)
   redirect(`/ticket/${ticketId}`)
 }
+

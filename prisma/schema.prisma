@@ -39,6 +39,7 @@ model Ticket {
   creadoEn    DateTime @default(now())
   actualizadoEn DateTime @updatedAt
   comentarios Comentario[]
+  categoria   String   @default("OTROS") // HARDWARE, SOFTWARE, RED, CUENTAS, OTROS
 
   // Relación: Cada ticket pertenece a un usuario (el que lo creó)
   creadorId   Int

@@ -43,6 +43,21 @@ export default function NuevoTicketPage() {
             </select>
           </div>
 
+          {/* CATEGORÍA */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+  <select 
+    name="categoria" 
+    className="w-full rounded-md border-gray-300 p-3 shadow-sm bg-white"
+  >
+    <option value="HARDWARE">🖥️ Hardware (Equipos, Pantallas...)</option>
+    <option value="SOFTWARE">💾 Software (Programas, Licencias...)</option>
+    <option value="RED">🌐 Red e Internet</option>
+    <option value="CUENTAS">🔑 Cuentas y Contraseñas</option>
+    <option value="OTROS">❓ Otros</option>
+  </select>
+</div>
+
           <div className="pt-4 flex gap-2">
             <button 
               type="submit" 
