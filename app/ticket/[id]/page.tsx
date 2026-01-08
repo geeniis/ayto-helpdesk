@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-// Importamos la acción de borrarTicket
+// Importamos las acciones
 import { agregarComentario, borrarComentario, cambiarEstadoTicket, borrarTicket } from '@/app/actions'
 import { auth } from '@/auth'
 
@@ -39,7 +39,7 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                <div className="flex items-center gap-4 mb-2">
                  <h1 className="text-2xl font-bold text-gray-800">{ticket.titulo}</h1>
                  
-                 {/* BOTONES DE EDICIÓN Y BORRADO (NUEVOS) */}
+                 {/* BOTONES DE EDICIÓN Y BORRADO */}
                  <div className="flex items-center gap-2">
                     <Link 
                       href={`/ticket/editar/${ticket.id}`} 
@@ -50,24 +50,26 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                     </Link>
                     
                     <form action={borrarTicket}>
-  <input type="hidden" name="id" value={ticket.id} />
-  <button 
-    className="text-gray-400 hover:text-red-600 transition pt-1"
-    title="Eliminar ticket permanentemente"
-  >
-    🗑️
-  </button>
-</form>
+                      <input type="hidden" name="id" value={ticket.id} />
+                      <button 
+                        className="text-gray-400 hover:text-red-600 transition pt-1"
+                        title="Eliminar ticket permanentemente"
+                      >
+                        🗑️
+                      </button>
+                    </form>
                  </div>
                </div>
 
                <span className={`px-3 py-1 rounded text-sm font-bold ${
-                  ticket.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                }`}>
-                  Prioridad: {ticket.prioridad}
+                 ticket.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' : 
+                 ticket.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' :
+                 'bg-green-100 text-green-800'
+               }`}>
+                 Prioridad: {ticket.prioridad}
                </span>
             </div>
-
+            
             {/* BOTONES DE ESTADO */}
             <div className="flex flex-col items-end gap-2">
               <span className="text-xs text-gray-400 uppercase font-bold">Cambiar Estado</span>
@@ -106,9 +108,38 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
             </div>
           </div>
           
+          {/* DESCRIPCIÓN */}
           <p className="text-gray-700 text-lg mb-6 whitespace-pre-wrap">{ticket.descripcion}</p>
           
-          <div className="flex gap-6 text-sm text-gray-500 border-t pt-4">
+          {/* --- ZONA DE ADJUNTOS (NUEVO) 📸 --- */}
+          {ticket.adjuntoUrl && (
+            <div className="mt-6 mb-6 bg-gray-50 p-4 rounded border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2 flex items-center gap-2">
+                📎 Archivo Adjunto
+              </h3>
+              
+              {/* Detectamos si es VIDEO (.mp4, .webm) o IMAGEN */}
+              {ticket.adjuntoUrl.includes('.mp4') || ticket.adjuntoUrl.includes('.webm') || ticket.adjuntoUrl.includes('.mov') ? (
+                <video 
+                  src={ticket.adjuntoUrl} 
+                  controls 
+                  className="max-w-full rounded shadow-sm max-h-[400px]" 
+                />
+              ) : (
+                <a href={ticket.adjuntoUrl} target="_blank" rel="noopener noreferrer" className="inline-block group">
+                   <img 
+                     src={ticket.adjuntoUrl} 
+                     alt="Adjunto del ticket" 
+                     className="max-w-full rounded shadow-sm border border-gray-200 max-h-[400px] hover:opacity-95 transition" 
+                   />
+                   <span className="text-xs text-blue-500 group-hover:underline block mt-2">🔍 Clic para ver tamaño completo</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* PIE DE TARJETA */}
+          <div className="flex gap-6 text-sm text-gray-500 border-t pt-4 mt-4">
             <p>👤 Autor: <span className="font-semibold">{ticket.creador.nombre || ticket.creador.email}</span></p>
             <p>📅 Fecha: {ticket.creadoEn.toLocaleDateString()}</p>
           </div>

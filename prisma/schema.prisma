@@ -38,6 +38,7 @@ model Ticket {
   estado      String   @default("ABIERTO") // ABIERTO, EN_PROCESO, CERRADO
   prioridad   String   @default("MEDIA")   // BAJA, MEDIA, ALTA
   creadoEn    DateTime @default(now())
+  adjuntoUrl  String?
   actualizadoEn DateTime @updatedAt
   comentarios Comentario[]
   categoria   String   @default("OTROS") // HARDWARE, SOFTWARE, RED, CUENTAS, OTROS

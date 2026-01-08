@@ -21,27 +21,34 @@ async function verificarPermisos(ticketId: number, usuarioId: string) {
   return { esAdmin, esDuenio, ticket, usuario }
 }
 export async function crearTicket(formData: FormData) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) throw new Error("Usuario no identificado")
+  const session = await auth()
+  if (!session?.user?.id) return;
 
-    const titulo = formData.get('titulo') as string
-    const descripcion = formData.get('descripcion') as string
-    const prioridad = formData.get('prioridad') as string
-    const categoria = formData.get('categoria') as string
-    await prisma.ticket.create({
-      data: {
-        titulo,
-        descripcion,
-        prioridad,
-        categoria, 
-        creadorId: parseInt(session.user.id), 
-      },
-    })
-    revalidatePath('/')
-  } catch (error) {
-    console.error("❌ Error creando el ticket:", error)
-  }
+  const titulo = formData.get('titulo') as string
+  const descripcion = formData.get('descripcion') as string
+  const prioridad = formData.get('prioridad') as string
+  const categoria = formData.get('categoria') as string
+  
+  // CAPTURAMOS LA URL (Si no hay, será null o string vacío)
+  const adjuntoUrl = formData.get('adjuntoUrl') as string
+
+  await prisma.ticket.create({
+    data: {
+      titulo,
+      descripcion,
+      prioridad,
+      categoria,
+      adjuntoUrl: adjuntoUrl || null, // Guardamos la URL o null si no hay
+      creadorId: parseInt(session.user.id)
+    }
+  })
+
+  // ... (código de notificación y revalidate igual que antes) ...
+  
+  const nuevoTicket = await prisma.ticket.findFirst({ orderBy: { creadoEn: 'desc' } })
+  // Crear notificacion...
+  
+  revalidatePath('/')
   redirect('/')
 }
 
@@ -74,10 +81,9 @@ export async function editarTicket(formData: FormData) {
 
   const id = parseInt(formData.get('id') as string)
   
-  // 1. VERIFICAMOS PERMISOS
+  // Verificamos permisos (tu función auxiliar)
   const { esAdmin, esDuenio, ticket } = await verificarPermisos(id, session.user.id)
 
-  // Si no es dueño ni admin -> NO PUEDE TOCAR
   if (!esAdmin && !esDuenio) {
     throw new Error("No tienes permiso para editar este ticket")
   }
@@ -87,11 +93,12 @@ export async function editarTicket(formData: FormData) {
   const prioridad = formData.get('prioridad') as string
   const categoria = formData.get('categoria') as string
   
-  // OJO AQUÍ: El estado solo se cambia si es ADMIN
-  // Si es usuario normal, mantenemos el estado que ya tenía el ticket
+  // NUEVO: Capturamos la URL de la imagen (si la hay)
+  const adjuntoUrl = formData.get('adjuntoUrl') as string
+
+  // Lógica del estado (solo admin)
   let estado = ticket.estado 
   if (esAdmin) {
-      // Solo el admin lee el campo 'estado' del formulario
       estado = formData.get('estado') as string || ticket.estado
   }
 
@@ -102,17 +109,14 @@ export async function editarTicket(formData: FormData) {
       descripcion,
       prioridad,
       categoria,
-      estado // <--- Usamos la variable controlada
+      estado,
+      adjuntoUrl: adjuntoUrl || ticket.adjuntoUrl // Si envían URL nueva la usamos, si no, dejamos la vieja
     }
   })
-
-  // ... notificaciones y revalidate ...
-  if (estado !== ticket.estado) { /* lógica de notificación si cambió estado */ }
 
   revalidatePath(`/ticket/${id}`)
   redirect(`/ticket/${id}`)
 }
-
 // --- AUTENTICACIÓN ---
 export async function authenticate(prevState: string | undefined, formData: FormData) {
   try {
