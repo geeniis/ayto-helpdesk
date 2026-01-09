@@ -4,10 +4,14 @@ import { notFound } from 'next/navigation'
 // Importamos las acciones
 import { agregarComentario, borrarComentario, cambiarEstadoTicket, borrarTicket } from '@/app/actions'
 import { auth } from '@/auth'
+import { getDiccionario } from '@/lib/diccionario' // 1. IMPORTAR DICCIONARIO
 
 export default async function TicketDetalle({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
+
+  // 2. CARGAR IDIOMA (COOKIES)
+  const { t } = await getDiccionario()
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: parseInt(id) },
@@ -26,8 +30,9 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         
+        {/* ENLACE LIMPIO: Sin ?lang=... y traducido */}
         <Link href="/" className="text-blue-600 hover:underline mb-4 inline-block">
-          &larr; Volver al Dashboard
+          &larr; {t.ticket.volver}
         </Link>
 
         {/* --- TARJETA PRINCIPAL DEL TICKET --- */}
@@ -44,7 +49,7 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                     <Link 
                       href={`/ticket/editar/${ticket.id}`} 
                       className="text-gray-400 hover:text-blue-600 transition"
-                      title="Editar contenido del ticket"
+                      title={t.ticket.editar}
                     >
                       ✏️
                     </Link>
@@ -53,7 +58,7 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                       <input type="hidden" name="id" value={ticket.id} />
                       <button 
                         className="text-gray-400 hover:text-red-600 transition pt-1"
-                        title="Eliminar ticket permanentemente"
+                        title="Eliminar ticket"
                       >
                         🗑️
                       </button>
@@ -66,13 +71,14 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                  ticket.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' :
                  'bg-green-100 text-green-800'
                }`}>
-                 Prioridad: {ticket.prioridad}
+                 {/* Traducimos el valor de la prioridad */}
+                 Prioridad: {t.valores[ticket.prioridad as keyof typeof t.valores] || ticket.prioridad}
                </span>
             </div>
             
             {/* BOTONES DE ESTADO */}
             <div className="flex flex-col items-end gap-2">
-              <span className="text-xs text-gray-400 uppercase font-bold">Cambiar Estado</span>
+              <span className="text-xs text-gray-400 uppercase font-bold">{t.ticket.estado}</span>
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <form action={cambiarEstadoTicket}>
                   <input type="hidden" name="id" value={ticket.id} />
@@ -82,7 +88,9 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                     className={`px-3 py-1 rounded text-sm font-medium transition ${
                       ticket.estado === 'ABIERTO' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
                     }`}
-                  >Abierto</button>
+                  >
+                    {t.valores.ABIERTO}
+                  </button>
                 </form>
                 <form action={cambiarEstadoTicket}>
                   <input type="hidden" name="id" value={ticket.id} />
@@ -92,7 +100,9 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                     className={`px-3 py-1 rounded text-sm font-medium transition ${
                       ticket.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-700 shadow-sm border border-yellow-200' : 'text-gray-500 hover:bg-gray-200'
                     }`}
-                  >En Proceso</button>
+                  >
+                    {t.valores.EN_PROCESO}
+                  </button>
                 </form>
                 <form action={cambiarEstadoTicket}>
                   <input type="hidden" name="id" value={ticket.id} />
@@ -102,13 +112,16 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                     className={`px-3 py-1 rounded text-sm font-medium transition ${
                       ticket.estado === 'RESUELTO' ? 'bg-green-100 text-green-700 shadow-sm border border-green-200' : 'text-gray-500 hover:bg-gray-200'
                     }`}
-                  >Resuelto</button>
+                  >
+                    {t.valores.RESUELTO}
+                  </button>
                 </form>
               </div>
             </div>
           </div>
           
           {/* DESCRIPCIÓN */}
+          <h3 className="font-bold text-gray-900 mb-2 text-sm uppercase">{t.ticket.descripcion}</h3>
           <p className="text-gray-700 text-lg mb-6 whitespace-pre-wrap">{ticket.descripcion}</p>
           
           {/* --- ZONA DE ADJUNTOS (NUEVO) 📸 --- */}
@@ -118,7 +131,6 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                 📎 Archivo Adjunto
               </h3>
               
-              {/* Detectamos si es VIDEO (.mp4, .webm) o IMAGEN */}
               {ticket.adjuntoUrl.includes('.mp4') || ticket.adjuntoUrl.includes('.webm') || ticket.adjuntoUrl.includes('.mov') ? (
                 <video 
                   src={ticket.adjuntoUrl} 
@@ -141,19 +153,19 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
           {/* PIE DE TARJETA */}
           <div className="flex gap-6 text-sm text-gray-500 border-t pt-4 mt-4">
             <p>👤 Autor: <span className="font-semibold">{ticket.creador.nombre || ticket.creador.email}</span></p>
-            <p>📅 Fecha: {ticket.creadoEn.toLocaleDateString()}</p>
+            <p>📅 {t.ticket.creado} {ticket.creadoEn.toLocaleDateString()}</p>
           </div>
         </div>
 
         {/* --- SECCIÓN DE COMENTARIOS --- */}
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            💬 Historial y Notas
+            💬 {t.ticket.historial}
           </h2>
 
           <div className="space-y-4">
             {ticket.comentarios.length === 0 && (
-              <p className="text-gray-400 italic">No hay comentarios aún.</p>
+              <p className="text-gray-400 italic">{t.columnas.vacio}</p>
             )}
 
             {ticket.comentarios.map((comentario) => (
@@ -181,16 +193,18 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
           </div>
 
           <div className="bg-gray-100 p-6 rounded-lg border border-gray-200 mt-8">
-            <h3 className="font-semibold text-gray-700 mb-3">Añadir respuesta</h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t.ticket.escribirComentario}</h3>
             <form action={agregarComentario}>
               <input type="hidden" name="ticketId" value={ticket.id} />
-              <textarea name="contenido" required placeholder="Escribe aquí..." className="w-full rounded-md border-gray-300 p-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-3" rows={3}></textarea>
+              <textarea name="contenido" required placeholder={t.ticket.escribirComentario} className="w-full rounded-md border-gray-300 p-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-3" rows={3}></textarea>
               <div className="flex justify-between items-center">
                 <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
                   <input type="checkbox" name="interno" className="rounded text-blue-600 focus:ring-blue-500" />
                   <span>Es una <b>Nota Interna</b> 🔒</span>
                 </label>
-                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition shadow">Enviar</button>
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition shadow">
+                  {t.ticket.enviar}
+                </button>
               </div>
             </form>
           </div>
