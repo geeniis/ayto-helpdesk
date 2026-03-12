@@ -1,7 +1,18 @@
+'use client'
+
 import { registrarUsuario } from '@/app/actions'
 import Link from 'next/link'
+import { useActionState } from 'react'
 
 export default function RegisterPage() {
+  const [state, formAction, isPending] = useActionState(
+    async (_prevState: { error?: string } | null, formData: FormData) => {
+      const result = await registrarUsuario(formData)
+      return result ?? null
+    },
+    null
+  )
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border border-gray-200">
@@ -11,8 +22,14 @@ export default function RegisterPage() {
           <p className="text-sm text-gray-500">Únete al HelpDesk del Ayuntamiento</p>
         </div>
 
-        <form action={registrarUsuario} className="space-y-4">
-          
+        {state?.error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm text-center">
+            {state.error}
+          </div>
+        )}
+
+        <form action={formAction} className="space-y-4">
+
           {/* Nombre */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
@@ -51,9 +68,10 @@ export default function RegisterPage() {
 
           <button 
             type="submit" 
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition font-bold"
+            disabled={isPending}
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition font-bold disabled:opacity-50"
           >
-            Registrarse
+            {isPending ? 'Registrando...' : 'Registrarse'}
           </button>
         </form>
 

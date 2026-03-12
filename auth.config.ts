@@ -9,16 +9,17 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/'); // Esto incluye TODA la web
       const isOnLogin = nextUrl.pathname.startsWith('/login');
+      const isOnRegister = nextUrl.pathname.startsWith('/register');
 
-      // 1. SI YA ESTÁS LOGUEADO Y VAS AL LOGIN...
+      // 1. SI YA ESTÁS LOGUEADO Y VAS AL LOGIN O REGISTER...
       // ¡Te mandamos a la Home automáticamente!
-      if (isOnLogin && isLoggedIn) {
+      if ((isOnLogin || isOnRegister) && isLoggedIn) {
         return Response.redirect(new URL('/', nextUrl));
       }
 
       // 2. PROTECCIÓN DE RUTAS
       if (isOnDashboard) {
-        if (isOnLogin) return true; // Deja ver el login si no estás logueado
+        if (isOnLogin || isOnRegister) return true; // Deja ver login/register si no estás logueado
         if (isLoggedIn) return true; // Deja pasar si tienes sesión
         return false; // Si no, redirige al login
       }

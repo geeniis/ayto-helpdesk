@@ -1,7 +1,11 @@
 import { signIn } from '@/auth'
+import { AuthError } from 'next-auth'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const params = await searchParams
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border border-gray-200">
@@ -12,11 +16,28 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500">Acceso al Ayto-HelpDesk</p>
         </div>
 
+        {params?.error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm text-center">
+            Correo o contraseña incorrectos
+          </div>
+        )}
+
         {/* Formulario de Login */}
         <form
           action={async (formData) => {
             "use server"
-            await signIn("credentials", formData)
+            try {
+              await signIn("credentials", {
+                email: formData.get("email"),
+                password: formData.get("password"),
+                redirectTo: "/"
+              })
+            } catch (error) {
+              if (error instanceof AuthError) {
+                redirect("/login?error=credentials")
+              }
+              throw error
+            }
           }}
           className="space-y-4"
         >

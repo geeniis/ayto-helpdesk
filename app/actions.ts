@@ -297,7 +297,7 @@ export async function registrarUsuario(formData: FormData) {
   const password = formData.get('password') as string
 
   if (!email || !password || !nombre) {
-    return // O podrías devolver un error
+    return { error: 'Todos los campos son obligatorios' }
   }
 
   // 1. Comprobar si el email ya existe
@@ -306,9 +306,7 @@ export async function registrarUsuario(formData: FormData) {
   })
 
   if (existe) {
-    // En una app real, aquí devolveríamos un error al formulario
-    console.log("El usuario ya existe")
-    return
+    return { error: 'Ya existe un usuario con ese correo electrónico' }
   }
 
   // 2. Encriptar la contraseña
