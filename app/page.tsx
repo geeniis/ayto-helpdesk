@@ -5,7 +5,8 @@ import Filtros from '@/app/components/Filtros'
 import Notificaciones from '@/app/components/Notificaciones'
 import Pagination from '@/app/components/Pagination'
 import LanguageSwitch from '@/app/components/LanguageSwitch'
-import { getDiccionario } from '@/lib/diccionario' 
+import { getDiccionario } from '@/lib/diccionario'
+import { obtenerOCrearChatGeneral } from '@/app/actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,8 @@ export default async function Home(props: SearchParamsProps) {
   if (!usuarioActual) return null
 
   const esAdmin = usuarioActual.rol === 'ADMIN'
+  const chatTicket = await obtenerOCrearChatGeneral(usuarioActual.id)
+
 
   const whereClause: any = {}
 
@@ -101,6 +104,10 @@ export default async function Home(props: SearchParamsProps) {
     }
   })
 
+  const totalNoLeidos = await prisma.mensaje.count({
+    where: { destinatarioId: usuarioActual.id, leido: false }
+  })
+
   const [countAbiertos, countProceso, countResueltos] = await Promise.all([
      prisma.ticket.count({ where: { estado: 'ABIERTO', ...whereClause } }),
      prisma.ticket.count({ where: { estado: 'EN_PROCESO', ...whereClause } }),
@@ -128,14 +135,14 @@ export default async function Home(props: SearchParamsProps) {
             </span>
           </p>
         </div>
-
+ 
         <div className="flex flex-wrap items-center gap-4 flex-1 justify-end w-full md:w-auto">
           <LanguageSwitch currentLang={lang} />
           <Filtros />
           <div className="h-8 w-px bg-slate-200/60 mx-1 hidden md:block"></div>
           <Notificaciones lista={misNotificaciones} />
         </div>
-
+ 
         <div className="flex gap-3 items-center w-full xl:w-auto justify-center xl:justify-end flex-wrap">
           {esAdmin && (
             <>
@@ -151,6 +158,17 @@ export default async function Home(props: SearchParamsProps) {
           <Link href="/noticias" className="bg-white/80 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5">
             <span className="hidden sm:inline">{t.botones.noticias}</span>
           </Link>
+          
+          <Link href="/chat" className="bg-white/80 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5 relative">
+            <span>💬</span> 
+            <span className="hidden sm:inline">Chat Directo</span>
+            {totalNoLeidos > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center border border-white animate-bounce shadow-md">
+                {totalNoLeidos}
+              </span>
+            )}
+          </Link>
+
           
           <Link href="/nuevo" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center gap-2 whitespace-nowrap">
             <span className="text-lg leading-none">+</span> {t.botones.nuevo}

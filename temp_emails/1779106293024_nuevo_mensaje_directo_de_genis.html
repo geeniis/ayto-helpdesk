@@ -1,0 +1,106 @@
+
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Mensaje de Chat Directo</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+          }
+          .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border: 1px border #e2e8f0;
+          }
+          .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 32px;
+            text-align: center;
+            color: #ffffff;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+          }
+          .content {
+            padding: 32px;
+            line-height: 1.6;
+          }
+          .content h2 {
+            margin-top: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .content p {
+            font-size: 15px;
+            color: #475569;
+            margin-bottom: 24px;
+          }
+          .btn-container {
+            text-align: center;
+            margin: 32px 0 16px 0;
+          }
+          .btn {
+            display: inline-block;
+            background-color: #2563eb;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 12px 28px;
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+            transition: background-color 0.2s;
+          }
+          .btn:hover {
+            background-color: #1d4ed8;
+          }
+          .footer {
+            background-color: #f1f5f9;
+            padding: 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+          }
+          .footer a {
+            color: #64748b;
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🏛️ Ayto-HelpDesk</h1>
+          </div>
+          <div class="content">
+            <h2>Hola, gmonteroc@edu.tecnocampus.cat</h2>
+            <p>Has recibido un nuevo mensaje directo de chat de <strong>Genis</strong>:<br/><br/><em>"F"</em></p>
+            
+              <div class="btn-container">
+                <a href="http://localhost:3000/chat?con=9" class="btn">Responder en el Portal</a>
+              </div>
+            
+          </div>
+          <div class="footer">
+            <p>Este es un correo automático enviado por el Departamento de Informática y Telecomunicaciones.</p>
+            <p>© 2026 Ayuntamiento - Todos los derechos reservados.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  

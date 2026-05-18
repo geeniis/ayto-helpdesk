@@ -535,3 +535,200 @@ export async function borrarEquipo(formData: FormData) {
   revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
   revalidatePath('/')
 }
+
+export async function obtenerOCrearChatGeneral(usuarioId: number) {
+  // Buscar si ya existe un ticket de chat general para este usuario
+  let ticket = await prisma.ticket.findFirst({
+    where: {
+      titulo: `💬 Chat de Soporte General - User #${usuarioId}`,
+      creadorId: usuarioId
+    },
+    include: {
+      comentarios: {
+        include: {
+          autor: true
+        },
+        orderBy: {
+          creadoEn: 'asc'
+        }
+      }
+    }
+  })
+
+  // Si no existe, lo creamos de forma automática
+  if (!ticket) {
+    ticket = await prisma.ticket.create({
+      data: {
+        titulo: `💬 Chat de Soporte General - User #${usuarioId}`,
+        descripcion: `Canal directo de chat general y consultas rápidas con el equipo de soporte técnico municipal.`,
+        categoria: 'OTROS',
+        prioridad: 'MEDIA',
+        estado: 'ABIERTO',
+        creadorId: usuarioId
+      },
+      include: {
+        comentarios: {
+          include: {
+            autor: true
+          },
+          orderBy: {
+            creadoEn: 'asc'
+          }
+        }
+      }
+    })
+  }
+
+  return ticket
+}
+
+export async function enviarMensajeChat(ticketId: number, contenido: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("No autenticado")
+  const miId = parseInt(session.user.id)
+
+  // 1. Guardamos el comentario
+  const comentario = await prisma.comentario.create({
+    data: {
+      contenido,
+      ticketId,
+      autorId: miId
+    },
+    include: {
+      autor: true
+    }
+  })
+
+  // 2. Buscamos el ticket para enviar notificaciones e email
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: { creador: true }
+  })
+
+  if (ticket) {
+    // Si escribe el creador (el empleado), notificamos a todos los admins
+    if (ticket.creadorId === miId) {
+      const admins = await prisma.usuario.findMany({ where: { rol: 'ADMIN' } })
+      for (const admin of admins) {
+        await crearNotificacion(admin.id, `Mensaje nuevo en Chat General de ${comentario.autor.nombre}`)
+      }
+    } else {
+      // Si escribe un admin, notificamos al creador
+      await crearNotificacion(ticket.creadorId, `El soporte técnico ha respondido en tu Chat General`)
+      
+      if (ticket.creador.email) {
+        const appUrl = process.env.NEXT_URL || 'http://localhost:3000'
+        await enviarEmail({
+          to: ticket.creador.email,
+          subject: `Mensaje de Soporte Técnico en el Chat General`,
+          titulo: 'Nueva Respuesta de Soporte',
+          saludo: `Hola, ${ticket.creador.nombre || ticket.creador.email}`,
+          mensaje: `El equipo de soporte técnico municipal ha respondido a tu consulta en el Chat General:<br/><br/><em>"${contenido}"</em>`,
+          botonTexto: 'Ver Mensajes en el Portal',
+          botonUrl: appUrl
+        })
+      }
+    }
+  }
+
+  revalidatePath('/')
+  return comentario
+}
+
+export async function enviarMensajeDirecto(destinatarioId: number, contenido: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("No autenticado")
+  const remitenteId = parseInt(session.user.id)
+
+  const mensaje = await prisma.mensaje.create({
+    data: {
+      contenido,
+      remitenteId,
+      destinatarioId
+    },
+    include: {
+      remitente: true,
+      destinatario: true
+    }
+  })
+
+  // Enviar correo electrónico
+  if (mensaje.destinatario.email) {
+    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    await enviarEmail({
+      to: mensaje.destinatario.email,
+      subject: `Nuevo mensaje directo de ${mensaje.remitente.nombre}`,
+      titulo: 'Mensaje de Chat Directo',
+      saludo: `Hola, ${mensaje.destinatario.nombre || mensaje.destinatario.email}`,
+      mensaje: `Has recibido un nuevo mensaje directo de chat de <strong>${mensaje.remitente.nombre}</strong>:<br/><br/><em>"${contenido.startsWith('data:image/') ? '[Foto adjunta]' : contenido}"</em>`,
+      botonTexto: 'Responder en el Portal',
+      botonUrl: `${appUrl}/chat?con=${remitenteId}`
+    })
+  }
+
+  return mensaje
+}
+
+export async function obtenerMensajesDirectos(usuarioA: number, usuarioB: number) {
+  return await prisma.mensaje.findMany({
+    where: {
+      OR: [
+        { remitenteId: usuarioA, destinatarioId: usuarioB },
+        { remitenteId: usuarioB, destinatarioId: usuarioA }
+      ]
+    },
+    include: {
+      remitente: true,
+      destinatario: true
+    },
+    orderBy: {
+      creadoEn: 'asc'
+    }
+  })
+}
+
+export async function marcarMensajesComoLeidos(destinatarioId: number, remitenteId: number) {
+  await prisma.mensaje.updateMany({
+    where: {
+      remitenteId,
+      destinatarioId,
+      leido: false
+    },
+    data: {
+      leido: true
+    }
+  })
+}
+
+export async function obtenerTotalMensajesNoLeidos(usuarioId: number) {
+  return await prisma.mensaje.count({
+    where: {
+      destinatarioId: usuarioId,
+      leido: false
+    }
+  })
+}
+
+export async function obtenerContactosConNoLeidos(miId: number, esAdminOTecnico: boolean) {
+  const whereContactos = esAdminOTecnico
+    ? { id: { not: miId } }
+    : { rol: { in: ['ADMIN', 'TECNICO'] }, id: { not: miId } }
+
+  return await prisma.usuario.findMany({
+    where: whereContactos,
+    orderBy: { nombre: 'asc' },
+    select: {
+      id: true,
+      nombre: true,
+      email: true,
+      rol: true,
+      mensajesEnviados: {
+        where: {
+          destinatarioId: miId,
+          leido: false
+        },
+        select: { id: true }
+      }
+    }
+  })
+}

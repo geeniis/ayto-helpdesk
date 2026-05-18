@@ -28,6 +28,9 @@ model Usuario {
   equipos   Equipo[] // Un usuario puede tener muchos equipos asignados
   noticias  Noticia[] // Un usuario puede escribir muchas noticias
   comentarios Comentario[]
+  
+  mensajesEnviados   Mensaje[] @relation("MensajesEnviados")
+  mensajesRecibidos  Mensaje[] @relation("MensajesRecibidos")
 }
 
 // 2. Los Tickets de soporte
@@ -95,3 +98,16 @@ model Notificacion {
   usuarioId Int
   usuario   Usuario  @relation(fields: [usuarioId], references: [id])
 }
+
+model Mensaje {
+  id             Int      @id @default(autoincrement())
+  contenido      String
+  creadoEn       DateTime @default(now())
+  leido          Boolean  @default(false)
+  
+  remitenteId    Int
+  remitente      Usuario  @relation("MensajesEnviados", fields: [remitenteId], references: [id])
+  
+  destinatarioId Int
+  destinatario   Usuario  @relation("MensajesRecibidos", fields: [destinatarioId], references: [id])
+}
