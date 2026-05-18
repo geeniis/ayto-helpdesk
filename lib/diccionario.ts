@@ -8,7 +8,16 @@ const diccionarios = {
       usuarios: 'Usuarios',
       noticias: 'Noticias',
       nuevo: 'Nuevo Ticket',
-      salir: 'Salir'
+      salir: 'Salir',
+      chat: 'Chat Directo',
+      estadisticas: 'Estadísticas'
+    },
+    filtros: {
+      buscar: 'Buscar texto o usuario...',
+      todasCategorias: 'Todas las Categorías',
+      prioridad: 'Prioridad',
+      activas: 'Incidencias Activas',
+      resueltas: 'Incidencias Resueltas'
     },
     noticias: {
       titulo: 'Tablón de Anuncios',
@@ -51,6 +60,8 @@ const diccionarios = {
       HARDWARE: 'Hardware',
       SOFTWARE: 'Software',
       RED: 'Red',
+      CUENTAS: 'Cuentas',
+      OTROS: 'Otros',
       OTRO: 'Otro',
       ABIERTO: 'Abierto',
       EN_PROCESO: 'En Proceso',
@@ -88,7 +99,16 @@ const diccionarios = {
       usuarios: 'Usuaris',
       noticias: 'Notícies',
       nuevo: 'Nou Tiquet',
-      salir: 'Sortir'
+      salir: 'Sortir',
+      chat: 'Xat Directe',
+      estadisticas: 'Estadístiques'
+    },
+    filtros: {
+      buscar: 'Buscar text o usuari...',
+      todasCategorias: 'Totes les Categories',
+      prioridad: 'Prioritat',
+      activas: 'Incidències Actives',
+      resueltas: 'Incidències Resoltes'
     },
     noticias: {
       titulo: 'Taulell d\'Anuncis',
@@ -131,6 +151,8 @@ const diccionarios = {
       HARDWARE: 'Hardware',
       SOFTWARE: 'Software',
       RED: 'Xarxa',
+      CUENTAS: 'Comptes',
+      OTROS: 'Altres',
       OTRO: 'Altre',
       ABIERTO: 'Obert',
       EN_PROCESO: 'En Procés',

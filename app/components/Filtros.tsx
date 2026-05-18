@@ -2,7 +2,7 @@
 
 import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 
-export default function Filtros() {
+export default function Filtros({ t }: { t: any }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -31,7 +31,7 @@ export default function Filtros() {
         <input
           type="text"
           className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-4 text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
-          placeholder="Buscar texto o usuario..."
+          placeholder={t.filtros.buscar}
           onChange={(e) => handleFilter('query', e.target.value)}
           defaultValue={searchParams.get('query')?.toString()}
         />
@@ -43,12 +43,12 @@ export default function Filtros() {
         onChange={(e) => handleFilter('categoria', e.target.value)}
         defaultValue={searchParams.get('categoria')?.toString()}
       >
-        <option value="">Todas las Categorías</option>
-        <option value="HARDWARE">Hardware</option>
-        <option value="SOFTWARE">Software</option>
-        <option value="RED">Red</option>
-        <option value="CUENTAS">Cuentas</option>
-        <option value="OTROS">Otros</option>
+        <option value="">{t.filtros.todasCategorias}</option>
+        <option value="HARDWARE">{t.valores.HARDWARE}</option>
+        <option value="SOFTWARE">{t.valores.SOFTWARE}</option>
+        <option value="RED">{t.valores.RED}</option>
+        <option value="CUENTAS">{t.valores.CUENTAS}</option>
+        <option value="OTROS">{t.valores.OTROS}</option>
       </select>
 
       {/* 3. FILTRO DE PRIORIDAD */}
@@ -57,10 +57,10 @@ export default function Filtros() {
         onChange={(e) => handleFilter('prioridad', e.target.value)}
         defaultValue={searchParams.get('prioridad')?.toString()}
       >
-        <option value="">Prioridad</option>
-        <option value="ALTA">Alta</option>
-        <option value="MEDIA">Media</option>
-        <option value="BAJA">Baja</option>
+        <option value="">{t.filtros.prioridad}</option>
+        <option value="ALTA">{t.valores.ALTA}</option>
+        <option value="MEDIA">{t.valores.MEDIA}</option>
+        <option value="BAJA">{t.valores.BAJA}</option>
       </select>
 
       {/* 4. FILTRO DE ESTADO (ACTIVAS / ARCHIVADAS) */}
@@ -69,8 +69,8 @@ export default function Filtros() {
         onChange={(e) => handleFilter('estado', e.target.value)}
         defaultValue={searchParams.get('estado')?.toString()}
       >
-        <option value="">Incidencias Activas</option>
-        <option value="RESUELTO">Incidencias Resueltas</option>
+        <option value="">{t.filtros.activas}</option>
+        <option value="RESUELTO">{t.filtros.resueltas}</option>
       </select>
     </div>
   )

@@ -108,11 +108,26 @@ export default async function Home(props: SearchParamsProps) {
     where: { destinatarioId: usuarioActual.id, leido: false }
   })
 
-  const [countAbiertos, countProceso, countResueltos] = await Promise.all([
+  const [
+    countAbiertos, 
+    countProceso, 
+    countResueltos,
+    countHardware,
+    countSoftware,
+    countRed,
+    countCuentas,
+    countOtros
+  ] = await Promise.all([
      prisma.ticket.count({ where: { estado: 'ABIERTO', ...whereClause } }),
      prisma.ticket.count({ where: { estado: 'EN_PROCESO', ...whereClause } }),
-     prisma.ticket.count({ where: { estado: 'RESUELTO', ...whereClause } })
+     prisma.ticket.count({ where: { estado: 'RESUELTO', ...whereClause } }),
+     prisma.ticket.count({ where: { categoria: 'HARDWARE', ...whereClause } }),
+     prisma.ticket.count({ where: { categoria: 'SOFTWARE', ...whereClause } }),
+     prisma.ticket.count({ where: { categoria: 'RED', ...whereClause } }),
+     prisma.ticket.count({ where: { categoria: 'CUENTAS', ...whereClause } }),
+     prisma.ticket.count({ where: { categoria: 'OTROS', ...whereClause } })
   ])
+  const totalConteo = countHardware + countSoftware + countRed + countCuentas + countOtros
   
   const maxTicketsEnUnaColumna = estado === 'RESUELTO' 
     ? countResueltos 
@@ -138,7 +153,7 @@ export default async function Home(props: SearchParamsProps) {
  
         <div className="flex flex-wrap items-center gap-4 flex-1 justify-end w-full md:w-auto">
           <LanguageSwitch currentLang={lang} />
-          <Filtros />
+          <Filtros t={t} />
           <div className="h-8 w-px bg-slate-200/60 mx-1 hidden md:block"></div>
           <Notificaciones lista={misNotificaciones} />
         </div>
@@ -150,7 +165,7 @@ export default async function Home(props: SearchParamsProps) {
                 <span className="hidden sm:inline">{t.botones.usuarios}</span>
               </Link>
               <Link href="/admin/estadisticas" className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5">
-                <span className="hidden sm:inline">Estadísticas</span>
+                <span className="hidden sm:inline">{t.botones.estadisticas}</span>
               </Link>
             </>
           )}
@@ -161,7 +176,7 @@ export default async function Home(props: SearchParamsProps) {
           
           <Link href="/chat" className="bg-white/80 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5 relative">
             <span>💬</span> 
-            <span className="hidden sm:inline">Chat Directo</span>
+            <span className="hidden sm:inline">{t.botones.chat}</span>
             {totalNoLeidos > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center border border-white animate-bounce shadow-md">
                 {totalNoLeidos}
@@ -243,6 +258,46 @@ export default async function Home(props: SearchParamsProps) {
                        </div>
                      </div>
                   ))}
+                </div>
+             )}
+          </div>
+
+          {/* Tarjeta de Distribución de Categorías */}
+          <div className="glass-card p-5 rounded-2xl shadow-sm">
+             <h3 className="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100 text-sm flex items-center gap-2">
+               <span className="bg-blue-100 p-1.5 rounded-lg">
+                 <svg className="w-4.5 h-4.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+               </span> {lang === 'ca' ? 'Distribució de Tasques' : 'Distribución de Tareas'}
+             </h3>
+             {totalConteo === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-xs text-slate-400">Sin incidencias registradas.</p>
+                </div>
+             ) : (
+                <div className="space-y-3">
+                  {[
+                    { label: t.valores.HARDWARE || 'Hardware', count: countHardware, color: 'from-indigo-500 to-blue-500' },
+                    { label: t.valores.SOFTWARE || 'Software', count: countSoftware, color: 'from-emerald-400 to-teal-500' },
+                    { label: t.valores.RED || 'Redes', count: countRed, color: 'from-cyan-400 to-sky-500' },
+                    { label: t.valores.CUENTAS || 'Cuentas', count: countCuentas, color: 'from-amber-400 to-orange-500' },
+                    { label: t.valores.OTROS || 'Otros', count: countOtros, color: 'from-slate-400 to-slate-500' }
+                  ].map(cat => {
+                    const porcentaje = totalConteo > 0 ? Math.round((cat.count / totalConteo) * 100) : 0;
+                    return (
+                      <div key={cat.label} className="text-xs">
+                        <div className="flex justify-between font-medium text-slate-700 mb-1">
+                          <span>{cat.label}</span>
+                          <span className="font-bold text-slate-500">{cat.count} ({porcentaje}%)</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200/40">
+                          <div 
+                            className={`h-full bg-gradient-to-r ${cat.color} rounded-full transition-all duration-1000`} 
+                            style={{ width: `${porcentaje}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
              )}
           </div>
