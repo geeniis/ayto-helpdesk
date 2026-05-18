@@ -2,11 +2,17 @@ import prisma from '@/lib/prisma'
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { getDiccionario } from '@/lib/diccionario' // <--- 1. IMPORTAMOS DICCIONARIO
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
 async function borrarNoticia(formData: FormData) {
   'use server'
+  const session = await auth()
+  if (!session?.user?.id) return;
+  const admin = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (admin?.rol !== 'ADMIN') throw new Error('No autorizado')
+
   const id = formData.get('id')
   if (id) {
     await prisma.noticia.delete({
@@ -17,6 +23,12 @@ async function borrarNoticia(formData: FormData) {
 }
 
 export default async function NoticiasPage() {
+  const session = await auth()
+  const usuarioActual = session?.user?.id 
+    ? await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+    : null
+  const esAdmin = usuarioActual?.rol === 'ADMIN'
+
   // 2. CARGAMOS EL IDIOMA
   const { t } = await getDiccionario()
 
@@ -39,13 +51,15 @@ export default async function NoticiasPage() {
           </div>
           
           <div className="flex gap-4 items-center">
-             {/* Botón Nuevo */}
-            <Link 
-              href="/noticias/nueva"  // Ojo: asegúrate que la ruta es 'nueva' o 'crear' según tu carpeta
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium"
-            >
-              {t.noticias.redactar}
-            </Link>
+             {/* Botón Nuevo - Solo para Admins */}
+             {esAdmin && (
+               <Link 
+                 href="/noticias/nueva"
+                 className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium"
+               >
+                 {t.noticias.redactar}
+               </Link>
+             )}
             
             <Link href="/" className="text-gray-600 hover:underline flex items-center">
               {t.noticias.volver}
@@ -78,27 +92,29 @@ export default async function NoticiasPage() {
                   <span>{t.noticias.publicado} <span className="font-semibold">{noticia.autor.nombre || noticia.autor.email}</span></span>
                 </div>
 
-                {/* Botones de Acción */}
-                <div className="flex items-center gap-2">
-                  {/* Botón EDITAR */}
-                  <Link 
-                    href={`/noticias/editar/${noticia.id}`}
-                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
-                  >
-                    ✏️ {t.noticias.editar}
-                  </Link>
-
-                  {/* Botón BORRAR */}
-                  <form action={borrarNoticia}>
-                    <input type="hidden" name="id" value={noticia.id} />
-                    <button 
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
-                      title={t.noticias.borrar}
+                {/* Botones de Acción - Solo para Admins */}
+                {esAdmin && (
+                  <div className="flex items-center gap-2">
+                    {/* Botón EDITAR */}
+                    <Link 
+                      href={`/noticias/editar/${noticia.id}`}
+                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
                     >
-                      🗑️ {t.noticias.borrar}
-                    </button>
-                  </form>
-                </div>
+                      ✏️ {t.noticias.editar}
+                    </Link>
+
+                    {/* Botón BORRAR */}
+                    <form action={borrarNoticia}>
+                      <input type="hidden" name="id" value={noticia.id} />
+                      <button 
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
+                        title={t.noticias.borrar}
+                      >
+                        🗑️ {t.noticias.borrar}
+                      </button>
+                    </form>
+                  </div>
+                )}
 
               </div>
             </article>

@@ -155,7 +155,7 @@ export default async function TicketDetalle({ params }: { params: Promise<{ id: 
                 <a href={ticket.adjuntoUrl} target="_blank" rel="noopener noreferrer" className="group block relative rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 max-w-2xl border border-indigo-200">
                    <div className="absolute inset-0 bg-indigo-900/0 group-hover:bg-indigo-900/20 transition-all duration-300 flex items-center justify-center z-10">
                      <span className="opacity-0 group-hover:opacity-100 bg-white text-indigo-800 px-4 py-2 rounded-full font-bold shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 text-sm flex items-center gap-2">
-                       🔍 {t.ticket.adjunto_clic}
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> {t.ticket.adjunto_clic}
                      </span>
                    </div>
                    <img 

@@ -1,9 +1,16 @@
 import { getDiccionario } from '@/lib/diccionario'
 import prisma from '@/lib/prisma'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import NoticiaEditForm from './NoticiaEditForm'
+import { auth } from '@/auth'
 
 export default async function EditarNoticiaPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session?.user?.id) redirect('/noticias')
+
+  const usuarioActual = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (usuarioActual?.rol !== 'ADMIN') redirect('/noticias')
+
   const { id } = await params
   const noticiaId = parseInt(id)
 

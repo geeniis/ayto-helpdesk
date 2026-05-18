@@ -32,7 +32,7 @@ export async function crearTicket(formData: FormData) {
   // CAPTURAMOS LA URL (Si no hay, será null o string vacío)
   const adjuntoUrl = formData.get('adjuntoUrl') as string
 
-  await prisma.ticket.create({
+  const ticketCreado = await prisma.ticket.create({
     data: {
       titulo,
       descripcion,
@@ -43,10 +43,16 @@ export async function crearTicket(formData: FormData) {
     }
   })
 
-  // ... (código de notificación y revalidate igual que antes) ...
-  
-  const nuevoTicket = await prisma.ticket.findFirst({ orderBy: { creadoEn: 'desc' } })
-  // Crear notificacion...
+  // 1. Notificar al creador del ticket
+  await crearNotificacion(parseInt(session.user.id), `Has registrado la incidencia: "${titulo}"`)
+
+  // 2. Notificar a los administradores
+  const admins = await prisma.usuario.findMany({ where: { rol: 'ADMIN' } })
+  for (const admin of admins) {
+    if (admin.id !== parseInt(session.user.id)) {
+      await crearNotificacion(admin.id, `Nueva incidencia registrada: "${titulo}"`)
+    }
+  }
   
   revalidatePath('/')
   redirect('/')
@@ -138,6 +144,8 @@ export async function authenticate(prevState: string | undefined, formData: Form
 export async function crearNoticia(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Debes iniciar sesión")
+  const autor = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (autor?.rol !== 'ADMIN') throw new Error("No autorizado")
 
   const titulo = formData.get('titulo') as string
   const contenido = formData.get('contenido') as string
@@ -150,7 +158,16 @@ export async function crearNoticia(formData: FormData) {
     },
   })
 
+  // Notificar a todos los usuarios
+  const usuarios = await prisma.usuario.findMany()
+  for (const u of usuarios) {
+    if (u.id !== parseInt(session.user.id)) {
+      await crearNotificacion(u.id, `Nueva noticia publicada: "${titulo}"`)
+    }
+  }
+
   revalidatePath('/noticias')
+  revalidatePath('/')
   redirect('/noticias')
 }
 
@@ -158,6 +175,8 @@ export async function crearNoticia(formData: FormData) {
 export async function borrarNoticia(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
+  const autor = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (autor?.rol !== 'ADMIN') throw new Error("No autorizado")
 
   const id = formData.get('id')
   if (!id) return;
@@ -173,6 +192,8 @@ export async function borrarNoticia(formData: FormData) {
 export async function editarNoticia(formData: FormData) {
   const session = await auth()
   if (!session?.user?.id) return;
+  const autor = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (autor?.rol !== 'ADMIN') throw new Error("No autorizado")
 
   const id = formData.get('id')
   const titulo = formData.get('titulo') as string
@@ -402,7 +423,11 @@ export async function crearEquipoUsuario(formData: FormData) {
       usuarioId
     }
   })
+
+  await crearNotificacion(usuarioId, `Se te ha asignado un nuevo equipo: ${tipo} (${marca} ${modelo})`)
+
   revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
+  revalidatePath('/')
 }
 
 export async function borrarEquipo(formData: FormData) {
@@ -412,8 +437,14 @@ export async function borrarEquipo(formData: FormData) {
   if (admin?.rol !== 'ADMIN') throw new Error('No autorizado');
 
   const id = parseInt(formData.get('id') as string)
-  const usuarioId = formData.get('usuarioId') as string
+  const usuarioId = parseInt(formData.get('usuarioId') as string)
+
+  const equipo = await prisma.equipo.findUnique({ where: { id } })
+  if (equipo) {
+    await crearNotificacion(usuarioId, `Se ha retirado de tu inventario el equipo: ${equipo.tipo}`)
+  }
 
   await prisma.equipo.delete({ where: { id } })
   revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
+  revalidatePath('/')
 }
