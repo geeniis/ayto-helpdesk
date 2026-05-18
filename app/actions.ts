@@ -7,6 +7,7 @@ import { signIn, signOut } from '@/auth'
 import { AuthError } from 'next-auth'
 import { auth } from '@/auth'
 import bcrypt from 'bcryptjs'
+import { enviarEmail } from '@/lib/email'
 // --- CREAR TICKET ---
 
 async function verificarPermisos(ticketId: number, usuarioId: string) {
@@ -51,6 +52,36 @@ export async function crearTicket(formData: FormData) {
   for (const admin of admins) {
     if (admin.id !== parseInt(session.user.id)) {
       await crearNotificacion(admin.id, `Nueva incidencia registrada: "${titulo}"`)
+    }
+  }
+
+  // Fallback / envío de emails asíncronos
+  const yo = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+
+  if (yo?.email) {
+    await enviarEmail({
+      to: yo.email,
+      subject: `Nueva incidencia registrada: #${ticketCreado.id}`,
+      titulo: 'Incidencia Registrada con Éxito',
+      saludo: `Hola, ${yo.nombre || yo.email}`,
+      mensaje: `Tu incidencia con el título <strong>"${titulo}"</strong> ha sido registrada correctamente en nuestro sistema de soporte. Un técnico la revisará a la mayor brevedad posible.`,
+      botonTexto: 'Ver Incidencia',
+      botonUrl: `${appUrl}/ticket/${ticketCreado.id}`
+    })
+  }
+
+  for (const admin of admins) {
+    if (admin.id !== parseInt(session.user.id) && admin.email) {
+      await enviarEmail({
+        to: admin.email,
+        subject: `[NUEVA INCIDENCIA] #${ticketCreado.id} - ${titulo}`,
+        titulo: 'Nueva Incidencia Registrada',
+        saludo: `Hola, ${admin.nombre || 'Administrador'}`,
+        mensaje: `El usuario <strong>${yo?.nombre || yo?.email}</strong> ha registrado una nueva incidencia de categoría <strong>${categoria}</strong> con prioridad <strong>${prioridad}</strong>.<br/><br/><strong>Descripción:</strong><br/>${descripcion}`,
+        botonTexto: 'Revisar Incidencia',
+        botonUrl: `${appUrl}/ticket/${ticketCreado.id}`
+      })
     }
   }
   
@@ -232,7 +263,10 @@ export async function agregarComentario(formData: FormData) {
   })
 
   // 2. Buscamos el ticket para saber de quién es
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } })
+  const ticket = await prisma.ticket.findUnique({ 
+    where: { id: ticketId },
+    include: { creador: true }
+  })
   
   if (ticket && ticket.creadorId !== parseInt(session.user.id)) {
       // Solo notificamos si el que comenta NO es el dueño del ticket (para no auto-notificarse)
@@ -240,6 +274,20 @@ export async function agregarComentario(formData: FormData) {
         ticket.creadorId,
         `Nuevo comentario en tu ticket: "${ticket.titulo}"`
       )
+
+      // Solo enviamos email si NO es una nota interna privada
+      if (!esInterno && ticket.creador.email) {
+        const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+        await enviarEmail({
+          to: ticket.creador.email,
+          subject: `Nuevo comentario en tu incidencia #${ticketId}`,
+          titulo: 'Nuevo Comentario en el Chat',
+          saludo: `Hola, ${ticket.creador.nombre || ticket.creador.email}`,
+          mensaje: `Un miembro del equipo técnico ha respondido en el hilo de tu incidencia <strong>"${ticket.titulo}"</strong>:<br/><br/><em>"${contenido}"</em>`,
+          botonTexto: 'Responder en el Chat',
+          botonUrl: `${appUrl}/ticket/${ticketId}`
+        })
+      }
   }
 
   revalidatePath(`/ticket/${ticketId}`)
@@ -396,6 +444,19 @@ export async function cambiarEstadoTicket(formData: FormData) {
       ticketActualizado.creadorId,
       `El estado de tu ticket ha cambiado a: ${nuevoEstado}`
     )
+
+    if (ticketActualizado.creador.email) {
+      const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      await enviarEmail({
+        to: ticketActualizado.creador.email,
+        subject: `Actualización de tu incidencia #${ticketId}: ${nuevoEstado}`,
+        titulo: 'Actualización del Estado',
+        saludo: `Hola, ${ticketActualizado.creador.nombre || ticketActualizado.creador.email}`,
+        mensaje: `Queremos informarte que un técnico administrador ha cambiado el estado de tu incidencia <strong>"${ticketActualizado.titulo}"</strong> a <strong>${nuevoEstado}</strong>.`,
+        botonTexto: 'Ver Detalles del Ticket',
+        botonUrl: `${appUrl}/ticket/${ticketId}`
+      })
+    }
   }
 
   revalidatePath(`/ticket/${ticketId}`)
@@ -426,6 +487,19 @@ export async function crearEquipoUsuario(formData: FormData) {
 
   await crearNotificacion(usuarioId, `Se te ha asignado un nuevo equipo: ${tipo} (${marca} ${modelo})`)
 
+  const receptor = await prisma.usuario.findUnique({ where: { id: usuarioId } })
+  if (receptor?.email) {
+    await enviarEmail({
+      to: receptor.email,
+      subject: `Asignación de Activo Informático: ${tipo}`,
+      titulo: 'Nuevo Equipo en Custodia',
+      saludo: `Hola, ${receptor.nombre || receptor.email}`,
+      mensaje: `El Departamento de Informática te ha asignado un nuevo dispositivo de inventario bajo tu custodia:<br/><br/><strong>Tipo:</strong> ${tipo}<br/><strong>Marca/Modelo:</strong> ${marca} ${modelo}<br/><strong>Número de Serie:</strong> ${numeroSerie}.`,
+      botonTexto: 'Ver mi Inventario',
+      botonUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/`
+    })
+  }
+
   revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
   revalidatePath('/')
 }
@@ -442,6 +516,19 @@ export async function borrarEquipo(formData: FormData) {
   const equipo = await prisma.equipo.findUnique({ where: { id } })
   if (equipo) {
     await crearNotificacion(usuarioId, `Se ha retirado de tu inventario el equipo: ${equipo.tipo}`)
+
+    const receptor = await prisma.usuario.findUnique({ where: { id: usuarioId } })
+    if (receptor?.email) {
+      await enviarEmail({
+        to: receptor.email,
+        subject: `Retirada de Activo Informático: ${equipo.tipo}`,
+        titulo: 'Equipo Retirado de Custodia',
+        saludo: `Hola, ${receptor.nombre || receptor.email}`,
+        mensaje: `El Departamento de Informática ha retirado de tu inventario activo el dispositivo: <strong>${equipo.tipo} (${equipo.marca} ${equipo.modelo})</strong>.`,
+        botonTexto: 'Ver mi Inventario Actual',
+        botonUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/`
+      })
+    }
   }
 
   await prisma.equipo.delete({ where: { id } })

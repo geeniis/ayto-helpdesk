@@ -4,7 +4,14 @@ import { redirect } from 'next/navigation'
 import { cambiarRolUsuario } from '@/app/actions'
 import Link from 'next/link'
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ query?: string }>
+}) {
+  const params = await searchParams
+  const query = params?.query || ''
+
   const session = await auth()
   if (!session?.user?.id) return redirect('/login')
 
@@ -23,8 +30,18 @@ export default async function AdminUsersPage() {
     )
   }
 
-  // 2. Cargar todos los usuarios
+  // 2. Cargar todos los usuarios (filtrados por búsqueda si aplica)
+  const whereClause = query
+    ? {
+        OR: [
+          { nombre: { contains: query } },
+          { email: { contains: query } }
+        ]
+      }
+    : {}
+
   const usuarios = await prisma.usuario.findMany({
+    where: whereClause,
     orderBy: { nombre: 'asc' }
   })
 
@@ -52,6 +69,32 @@ export default async function AdminUsersPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg> Volver al Dashboard
             </Link>
           </div>
+        </div>
+
+        {/* Buscador de Usuarios */}
+        <div className="mb-6 max-w-md">
+          <form method="GET" action="/admin/usuarios" className="relative flex items-center">
+            <input
+              type="text"
+              name="query"
+              defaultValue={query}
+              placeholder="Buscar usuario por nombre o email..."
+              className="w-full bg-white/75 backdrop-blur-md border border-slate-200 rounded-2xl pl-11 pr-12 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 transition-all text-slate-800 placeholder-slate-400 shadow-sm"
+            />
+            <div className="absolute left-4 text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            {query && (
+              <Link 
+                href="/admin/usuarios" 
+                className="absolute right-4 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Limpiar
+              </Link>
+            )}
+          </form>
         </div>
 
         <div className="glass-card rounded-3xl shadow-lg border border-slate-200 overflow-hidden">
