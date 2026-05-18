@@ -311,15 +311,15 @@ export default async function Home(props: SearchParamsProps) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
-                  { titulo: t.columnas.pendientes, tickets: ticketsAbiertos, border: 'border-l-blue-500', bg: 'bg-slate-100/40', badge: 'bg-blue-100 text-blue-700' },
-                  { titulo: t.columnas.proceso, tickets: ticketsEnProceso, border: 'border-l-amber-400', bg: 'bg-amber-50/40', badge: 'bg-amber-100 text-amber-700' }
+                  { titulo: t.columnas.pendientes, tickets: ticketsAbiertos, border: 'border-l-blue-500', bg: 'bg-slate-100/40', badge: 'bg-blue-100 text-blue-700', totalCount: countAbiertos },
+                  { titulo: t.columnas.proceso, tickets: ticketsEnProceso, border: 'border-l-amber-400', bg: 'bg-amber-50/40', badge: 'bg-amber-100 text-amber-700', totalCount: countProceso }
                 ].map((columna) => (
                   <div key={columna.titulo} className={`${columna.bg} rounded-3xl p-5 border border-white/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] backdrop-blur-sm min-h-[500px]`}>
                     <div className="flex justify-between items-center mb-6 px-1">
                       <h2 className="font-bold text-slate-700 text-sm uppercase tracking-wide flex items-center gap-2">
                         {columna.titulo}
                       </h2>
-                      <span className={`${columna.badge} px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm`}>{columna.tickets.length}</span>
+                      <span className={`${columna.badge} px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm`}>{columna.totalCount}</span>
                     </div>
                     
                     <div className="space-y-4">
