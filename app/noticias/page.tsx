@@ -44,11 +44,11 @@ export default async function NoticiasPage() {
               href="/noticias/nueva"  // Ojo: asegúrate que la ruta es 'nueva' o 'crear' según tu carpeta
               className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium"
             >
-              + Redactar
+              {t.noticias.redactar}
             </Link>
             
             <Link href="/" className="text-gray-600 hover:underline flex items-center">
-              Volver
+              {t.noticias.volver}
             </Link>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default async function NoticiasPage() {
                     href={`/noticias/editar/${noticia.id}`}
                     className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
                   >
-                    ✏️ Editar
+                    ✏️ {t.noticias.editar}
                   </Link>
 
                   {/* Botón BORRAR */}
@@ -93,9 +93,9 @@ export default async function NoticiasPage() {
                     <input type="hidden" name="id" value={noticia.id} />
                     <button 
                       className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded text-sm font-medium transition flex items-center gap-1"
-                      title="Borrar"
+                      title={t.noticias.borrar}
                     >
-                      🗑️ Borrar
+                      🗑️ {t.noticias.borrar}
                     </button>
                   </form>
                 </div>
@@ -107,7 +107,7 @@ export default async function NoticiasPage() {
           {/* Mensaje si no hay noticias */}
           {noticias.length === 0 && (
             <div className="text-center py-10 text-gray-500">
-                <p>No hay noticias publicadas todavía.</p>
+                <p>{t.noticias.vacio}</p>
             </div>
           )}
       </div>

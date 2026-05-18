@@ -1,17 +1,13 @@
 'use client'
 
-import { crearNoticia } from '@/app/actions'
+import { editarNoticia } from '@/app/actions'
 import Link from 'next/link'
 import { useState } from 'react'
 
-export default function FormularioNueva({ t }: { t: any }) {
+export default function NoticiaEditForm({ t, noticia }: { t: any, noticia: any }) {
   const [guardando, setGuardando] = useState(false)
 
-  // Función simple para deshabilitar botón al enviar
-  const manejarEnvio = () => {
-    setGuardando(true)
-    // El formulario se enviará automáticamente al action 'crearNoticia'
-  }
+  const manejarEnvio = () => setGuardando(true)
 
   if (!t) return <div>Cargando...</div>
 
@@ -19,11 +15,12 @@ export default function FormularioNueva({ t }: { t: any }) {
     <div className="w-full max-w-2xl bg-white rounded-lg shadow-lg p-8 border border-gray-200">
         
         <div className="mb-6 border-b pb-4">
-          <h1 className="text-2xl font-bold text-gray-800">📢 {t.noticias?.nueva || 'Nueva Noticia'}</h1>
-          <p className="text-gray-500 text-sm">{t.noticias?.aviso || 'Aviso público'}</p>
+          <h1 className="text-2xl font-bold text-gray-800">✏️ {t.noticias?.editar || 'Editar Noticia'}</h1>
         </div>
 
-        <form action={crearNoticia} onSubmit={manejarEnvio} className="space-y-6">
+        <form action={editarNoticia} onSubmit={manejarEnvio} className="space-y-6">
+          <input type="hidden" name="id" value={noticia.id} />
+
           {/* Título */}
           <div>
             <label htmlFor="titulo" className="block text-sm font-medium text-gray-700 mb-1">
@@ -34,7 +31,7 @@ export default function FormularioNueva({ t }: { t: any }) {
               name="titulo"
               id="titulo"
               required
-              placeholder="Ej: Mantenimiento..."
+              defaultValue={noticia.titulo}
               className="w-full rounded-md border border-gray-300 p-3 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -49,7 +46,7 @@ export default function FormularioNueva({ t }: { t: any }) {
               id="contenido"
               required
               rows={6}
-              placeholder={t.formulario?.descripcion || 'Detalles...'}
+              defaultValue={noticia.contenido}
               className="w-full rounded-md border border-gray-300 p-3 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
             ></textarea>
           </div>
@@ -67,7 +64,7 @@ export default function FormularioNueva({ t }: { t: any }) {
               disabled={guardando}
               className="px-6 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 shadow transition disabled:bg-gray-400"
             >
-              {guardando ? 'Publicando...' : (t.formulario?.guardar || 'Publicar')}
+              {guardando ? 'Guardando...' : (t.formulario?.guardar || 'Guardar Cambios')}
             </button>
           </div>
         </form>

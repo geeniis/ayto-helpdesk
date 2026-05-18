@@ -380,3 +380,40 @@ export async function cambiarEstadoTicket(formData: FormData) {
   revalidatePath(`/ticket/${ticketId}`)
   revalidatePath('/') 
 }
+
+export async function crearEquipoUsuario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+  const admin = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (admin?.rol !== 'ADMIN') throw new Error('No autorizado');
+
+  const usuarioId = parseInt(formData.get('usuarioId') as string)
+  const tipo = formData.get('tipo') as string
+  const marca = formData.get('marca') as string
+  const modelo = formData.get('modelo') as string
+  const numeroSerie = formData.get('numeroSerie') as string
+
+  await prisma.equipo.create({
+    data: {
+      tipo,
+      marca,
+      modelo,
+      numeroSerie,
+      usuarioId
+    }
+  })
+  revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
+}
+
+export async function borrarEquipo(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return;
+  const admin = await prisma.usuario.findUnique({ where: { id: parseInt(session.user.id) } })
+  if (admin?.rol !== 'ADMIN') throw new Error('No autorizado');
+
+  const id = parseInt(formData.get('id') as string)
+  const usuarioId = formData.get('usuarioId') as string
+
+  await prisma.equipo.delete({ where: { id } })
+  revalidatePath('/admin/usuarios/' + usuarioId + '/equipos')
+}
