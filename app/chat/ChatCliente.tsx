@@ -77,6 +77,33 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 600): Prom
   })
 }
 
+const playNotificationSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+
+    const osc = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+
+    osc.type = 'sine'
+    // Dynamic warm synthesized notification ping (D5 -> A5 note blend)
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12)
+
+    gainNode.gain.setValueAtTime(0.06, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+
+    osc.connect(gainNode)
+    gainNode.connect(ctx.destination)
+
+    osc.start()
+    osc.stop(ctx.currentTime + 0.25)
+  } catch (err) {
+    console.warn("Audio playback blocked by autoplay rules or failed:", err)
+  }
+}
+
 export default function ChatCliente({
   miId,
   contactos,
@@ -120,6 +147,13 @@ export default function ChatCliente({
     mensajesCountRef.current = mensajes.length
   }, [mensajes])
 
+  // Track the total sum of unread messages across all contacts to sound alerts on incoming background messages
+  const totalNoLeidosRef = useRef(0)
+  useEffect(() => {
+    const unreadCount = contactosList.reduce((acc, c) => acc + (c.mensajesEnviados?.length || 0), 0)
+    totalNoLeidosRef.current = unreadCount
+  }, [contactosList])
+
   const scrollToBottom = (smooth = true) => {
     scrollRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
   }
@@ -155,6 +189,11 @@ export default function ChatCliente({
         if (contactoSeleccionado) {
           const nuevos = await obtenerMensajesDirectos(miId, contactoSeleccionado.id)
           if (nuevos.length !== mensajesCountRef.current) {
+            // Play sound if the last incoming message was sent by the other contact
+            const ultimoMsg = nuevos[nuevos.length - 1]
+            if (ultimoMsg && ultimoMsg.remitenteId !== miId) {
+              playNotificationSound()
+            }
             handleIncomingMessages(nuevos as any)
             await marcarMensajesComoLeidos(miId, contactoSeleccionado.id)
           }
@@ -162,6 +201,13 @@ export default function ChatCliente({
 
         // 2. Poll contacts list to update sidebar unread badges in real time
         const contactosActualizados = await obtenerContactosConNoLeidos(miId, esAdminOTecnico)
+        const nuevoNoLeidos = contactosActualizados.reduce((acc, c) => acc + (c.mensajesEnviados?.length || 0), 0)
+        
+        // Play notification sound if an unread message arrives from any other contact
+        if (nuevoNoLeidos > totalNoLeidosRef.current) {
+          playNotificationSound()
+        }
+
         setContactosList(contactosActualizados as any)
       } catch (error) {
         console.error('Error en el sincronizador del chat:', error)
